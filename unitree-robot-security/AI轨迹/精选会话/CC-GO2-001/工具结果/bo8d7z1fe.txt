@@ -1,0 +1,330 @@
+=== ����ʱ��־: ��Կ������� ===
+  [btgatt-server.LOG] [2026-07-12 10:42:03 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG] [2026-07-12 10:42:10 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG] [2026-07-12 10:44:06 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:13 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:13 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:14 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 10:44:24 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:09:24 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG] [2026-07-12 15:09:32 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG] [2026-07-12 15:10:22 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:42 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:43 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:43 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:43 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:43 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 15:10:47 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-12 17:35:33 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG] [2026-07-12 18:19:49 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG] [2026-07-13 15:00:09 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG] [2026-07-13 15:26:58 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:14 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:23 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:23 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:24 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:25 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 15:28:39 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:00:56 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:35 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:35 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:35 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:35 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:36 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:36 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:36 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:36 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:36 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:36 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:36 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:36 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:37 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:37 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:37 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:37 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:01:41 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:13:57 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:25:57 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:08 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:08 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:08 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:08 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:08 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:08 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:09 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:09 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:09 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:09 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:09 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:09 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:10 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:10 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:10 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:10 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:31:20 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:41:58 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:08 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:08 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:09 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:09 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:09 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:09 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:09 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:09 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:09 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:09 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:09 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:09 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:10 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:10 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:10 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:10 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 16:42:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:29:25 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:04 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:12 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:12 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:12 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:12 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:12 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:12 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:12 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:12 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:12 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:12 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:13 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:13 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:13 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-13 17:31:22 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG] [2026-07-14 17:00:57 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG] [2026-07-14 17:01:04 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG] [2026-07-15 14:31:01 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG] [2026-07-15 14:31:10 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG.1] [2026-07-10 12:04:31 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:04:47 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:33 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:33 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:33 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:33 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:33 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:33 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:34 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:34 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:34 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:34 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:34 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:34 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:35 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:35 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:35 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:35 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:06:44 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:03 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:13 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:13 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:13 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:13 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:13 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:14 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:14 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:14 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:14 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:14 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:14 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 12:07:23 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:07:58 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG.1] [2026-07-10 15:08:06 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG.1] [2026-07-10 15:37:36 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:04 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:04 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:05 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:06 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:38:14 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:25 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:36 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:36 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:36 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:36 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:37 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:37 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:37 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:37 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:38 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:38 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:38 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:38 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:38 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:38 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:39 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:39 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:49:47 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 15:52:58 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:39 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:48 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:48 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:48 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:48 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:48 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:48 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:48 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:48 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:49 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:49 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:49 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:49 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:49 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:49 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:49 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:50 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 16:09:58 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:14:41 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:49 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:56 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:56 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:56 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:56 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:57 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:16:58 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:17:06 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:22:55 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:02 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:02 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:03 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:03 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:03 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:03 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:03 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:03 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:03 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:03 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:04 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:04 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:04 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:04 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:04 INFO  src/shared/gatt-server.c:374]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:04 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.1] [2026-07-10 17:23:13 INFO  src/shared/gatt-server.c:302]: read AES 128 GCM KEY done, key length:16
+  [btgatt-server.LOG.2] [2026-07-09 17:33:12 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.2] [2026-07-09 17:33:27 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.2] [2026-07-09 17:34:45 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+  [btgatt-server.LOG.2] [2026-07-10 10:32:56 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG.2] [2026-07-10 10:33:03 INFO  tools/btgatt-server.c:1520]: CHECK UnitreeAES128GCMKeyFile
+  [btgatt-server.LOG.2] [2026-07-10 11:43:04 INFO  src/shared/gatt-server.c:1991]: read AES 128 GCM done, key length:16
+
+=== generate_aes_128_gcm_key @0x5ad8 (����108�ֽ�) ===
+  0x05ad8: stp      x29, x30, [sp, #-0x10]!
+  0x05adc: cmp      w1, #0x10
+  0x05ae0: mov      x29, sp
+  0x05ae4: b.eq     #0x5b10
+  0x05ae8: mov      w0, #2
+  0x05aec: adrp     x3, #0x15000
+  0x05af0: adrp     x1, #0x14000
+  0x05af4: add      x3, x3, #0x208
+  0x05af8: add      x1, x1, #0xec0
+  0x05afc: mov      w2, #0x52c
+  0x05b00: bl       #0x14868
+  0x05b04: mov      w0, #0
+  0x05b08: ldp      x29, x30, [sp], #0x10
+  0x05b0c: ret      
+  0x05b10: bl       #0x3820
+  0x05b14: cmp      w0, #1
+  0x05b18: b.eq     #0x5b08
+  0x05b1c: mov      w2, #0x532
+  0x05b20: mov      w0, #2
+  0x05b24: adrp     x3, #0x15000
+  0x05b28: adrp     x1, #0x14000
+  0x05b2c: add      x3, x3, #0x230
+  0x05b30: add      x1, x1, #0xec0
+  0x05b34: bl       #0x14868
+  0x05b38: mov      w0, #0
+  0x05b3c: ldp      x29, x30, [sp], #0x10
+  0x05b40: ret      
+
+=== �����߼����� ===
+
+generate_aes_128_gcm_key(output_buffer, length):
+  if length != 16:
+    log_error("line 0x52c")  # ��������
+    return 0
+
+  result = fn_0x3820()  # �� ����ʲô����?
+  if result == 1:
+    return 0  # �Ѵ���,��������
+
+  log("line 0x532")  # ��ʼ����
+  return 0
+
+fn_0x3820 ������:
+  - �����Կ�ļ��Ƿ��Ѵ���
+  - ������ڷ���1(��������)
+  - ���������,�� /dev/urandom ���������Կ
+
+�ؼ�: �������ֻ����Կ�ļ�������ʱ������
+һ������,�����ñ����� etc/key/aes_key.bin
+

