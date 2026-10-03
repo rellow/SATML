@@ -1,17 +1,17 @@
-# GO2-CHAIN-002 BLE 配网到网络劫持
+# GO2-CHAIN-002 BLE Provisioning to Network Hijacking
 
-- 状态：待动态闭环
-- 攻击前提：仅限授权设备与隔离网络；各阶段前提以漏洞 README 为准。
-- 最终影响：攻击链完成后可达到题名所述影响。
+- Status: pending dynamic closure
+- Attack preconditions: authorized devices and isolated networks only; stage-specific preconditions are defined in each vulnerability README.
+- Final impact: completing the chain reaches the impact stated in the title.
 
-## 阶段
+## Stages
 
 1. [G2-003](../../漏洞/G2-003-BLE-配网注入与网络劫持/README.md)
 2. [G2-011](../../漏洞/G2-011-BLE-F2-密钥投递/README.md)
 3. [G2-015](../../漏洞/G2-015-BLE-握手零熵与授权态残留/README.md)
 
-## 清理过程
+## Cleanup
 
-动态复现后必须删除临时文件、恢复配置、停止测试监听器，并再次验证相关服务处于预期状态。
+After dynamic reproduction, remove temporary files, restore configuration, stop test listeners, and verify again that the relevant services are in their expected state.
 
-本目录只串联漏洞，不复制任何漏洞报告、PoC 或证据。
+This directory only links vulnerabilities into a chain; it does not duplicate vulnerability reports, PoCs, or evidence.
