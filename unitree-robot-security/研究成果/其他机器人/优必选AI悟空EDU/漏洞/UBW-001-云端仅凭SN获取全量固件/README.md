@@ -198,7 +198,7 @@ The source report used an HTTP HEAD request against the returned package URL and
 
 | Symptom | Cause and Handling |
 |---|---|
-| 403 `非法客户端` | The source report attributes this to using local time rather than the server-provided timestamp, or to constructing the signed field order incorrectly |
+| 403 `非法客户端` ("illegal client") | The source report attributes this to using local time rather than the server-provided timestamp, or to constructing the signed field order incorrectly |
 | Returned `[]` | Incorrect productName or an unpublished module; see the inventory above |
 | nonce is not 8 characters | The nonce in the signed string must match the X-UBT-Nonce field and the format expected by the service |
 
