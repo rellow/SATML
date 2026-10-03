@@ -1,126 +1,101 @@
 ---
-编号: UBH-020
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: motion-运动控制服务无认证与重放检查关闭
+ID: UBH-020
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: motion-运动控制服务无认证与重放检查关闭
 ---
-# UBH-020 E4/E5 · 运动控制服务无认证 + 时间戳重放检查可关闭
+# UBH-020 E4/E5 · Unauthenticated Motion-Control Services and Disableable Replay Checks
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **高** — 控制服务无鉴权；机器人端可关闭指令时间戳重放校验 \|
-- 组合效果：未授权者通过 rosbridge/DDS 直接驱动或干扰运动控制。
+The motion stack exposes lifecycle/control services without a caller-authentication boundary, and a separate service can disable command-timestamp validation. Together, these properties weaken both authorization and replay protection on safety-relevant motion control.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- # E4/E5 · 运动控制服务无认证 + 时间戳重放检查可关闭
-- \| 组件 \| motion 板运动控制栈（`rosa_control_node` 等） \|
-- \| 服务 \| `/mc/sdk/start_ecat` `/mc/sdk/start_mc` `/mc/sdk/robot_command` `/mc/sdk/disable_check_command_stamp` 等 \|
-- \| 危害 \| **高** — 控制服务无鉴权；机器人端可关闭指令时间戳重放校验 \|
-- - **E4**：`start_ecat` / `start_mc` / `robot_command` 等运动生命周期与指令服务对调用者无任何
-- - 默认（安全）：枚举 `/mc/sdk/*` 服务列表 + 关键 topic（`nx6_output`、手部指令等），证明接口面存在且无鉴权。
+- Component: motion-board control stack such as `rosa_control_node`.
+- Representative services include `/mc/sdk/start_ecat`, `/mc/sdk/start_mc`, `/mc/sdk/robot_command`, and `/mc/sdk/disable_check_command_stamp`.
+- The retained verification enumerates the services without changing robot state.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` with live service enumeration. State-changing calls were intentionally not performed.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must have access to the ROS/DDS service graph or an exposed bridge. Dynamic testing requires a suspended robot or other physical safety controls.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # E4/E5 · 运动控制服务无认证 + 时间戳重放检查可关闭
-- \| 危害 \| **高** — 控制服务无鉴权；机器人端可关闭指令时间戳重放校验 \|
-- 识别**重放/过期指令**（对抗旧指令覆盖新指令造成误动作）；关闭后：
-- - 攻击者可重放旧命令绕过时效保护
-- python exploit_motion_svc.py --danger   # 查看关闭重放校验载荷（不发送）
-- 返回成功即时间戳重放校验已关闭。
+Motion lifecycle and command operations are reachable without per-caller authorization, and the command-age/replay safeguard itself can be disabled through a service call.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The safe probe enumerates the `/mc/sdk/*` interface surface and associated topics. It can display the replay-check-disable request but does not send it.
 
-## 7. 实际影响
+## 7. Impact
 
-- # E4/E5 · 运动控制服务无认证 + 时间戳重放检查可关闭
-- \| 组件 \| motion 板运动控制栈（`rosa_control_node` 等） \|
-- \| 危害 \| **高** — 控制服务无鉴权；机器人端可关闭指令时间戳重放校验 \|
-- 组合效果：未授权者通过 rosbridge/DDS 直接驱动或干扰运动控制。
-- ## 红线 / 风险
+A caller with ROS/DDS access could potentially start or interfere with the motion stack and weaken freshness checks, making stale or replayed commands more likely to be accepted.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). The committed probe is enumeration-only.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Authenticate and authorize all motion lifecycle/control services.
+- Make replay/freshness validation mandatory rather than remotely disableable in normal operation.
+- Separate maintenance-only controls from runtime interfaces.
+- Add command sequencing, freshness, and rate-limit checks below bridge layers.
+- Audit all changes to safety-control settings.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# E4/E5 · 运动控制服务无认证 + 时间戳重放检查可关闭
+# E4/E5 · Unauthenticated Motion-Control Services and Disableable Timestamp Replay Checks
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | motion 板运动控制栈（`rosa_control_node` 等） |
-| 服务 | `/mc/sdk/start_ecat` `/mc/sdk/start_mc` `/mc/sdk/robot_command` `/mc/sdk/disable_check_command_stamp` 等 |
-| 危害 | **高** — 控制服务无鉴权；机器人端可关闭指令时间戳重放校验 |
-| 来源 | report_motion.md (E4, E5) |
+| Component | Motion-board control stack (`rosa_control_node`, etc.) |
+| Services | `/mc/sdk/start_ecat`, `/mc/sdk/start_mc`, `/mc/sdk/robot_command`, `/mc/sdk/disable_check_command_stamp`, and related interfaces |
+| Impact | **High** — control services lack caller authentication, and command timestamp checking can be disabled |
+| Source | `report_motion.md` (E4, E5) |
 
-## 漏洞原理
-- **E4**：`start_ecat` / `start_mc` / `robot_command` 等运动生命周期与指令服务对调用者无任何
-  认证（谁都能 start/stop 运动栈、发运动命令）。
-- **E5**：`/mc/sdk/disable_check_command_stamp` 可关闭"指令时间戳校验"。该校验原本用于
-  识别**重放/过期指令**（对抗旧指令覆盖新指令造成误动作）；关闭后：
-  - 攻击者可重放旧命令绕过时效保护
-  - 指令执行窗口不再受控，误动作概率上升
+## Vulnerability Mechanism
 
-组合效果：未授权者通过 rosbridge/DDS 直接驱动或干扰运动控制。
+- **E4:** motion lifecycle and command services do not visibly authenticate the caller at the service boundary.
+- **E5:** `/mc/sdk/disable_check_command_stamp` can disable timestamp validation that normally rejects stale/replayed commands.
 
-## 利用脚本
+Once that check is disabled, old commands are no longer constrained by the same freshness window, increasing the risk that stale input can interfere with current control state.
+
+The source report notes that an exposed ROS/DDS bridge can therefore compose with these interfaces to create unauthorized motion-control authority.
+
+## Reproduction Script
+
 `scripts/exploit_motion_svc.py`
 
-- 默认（安全）：枚举 `/mc/sdk/*` 服务列表 + 关键 topic（`nx6_output`、手部指令等），证明接口面存在且无鉴权。
-- `--danger`：展示 `disable_check_command_stamp` 触发载荷（**不发送**）。
+- Default safe mode enumerates `/mc/sdk/*` services and relevant control topics.
+- The danger mode only displays the request that would disable timestamp checking; it does not transmit it.
 
-## 用法
-```
-python exploit_motion_svc.py            # 枚举证明
-python exploit_motion_svc.py --danger   # 查看关闭重放校验载荷（不发送）
-```
+## Evidence Output
 
-## 证据输出
-- `/mc/sdk/*` 服务注册清单（证明调用面）
-- topic 与消息类型
-- 调用耗时/返回摘要
-- `evidence/` 目录留存
+- Registered `/mc/sdk/*` service set.
+- Topic and message-type information.
+- Call timing/response metadata for safe enumeration.
+- Supporting logs under `evidence/`.
 
-## 红线 / 风险
-⚠️ `start_ecat/start_mc/robot_command/disable_check_command_stamp` 均改变运动状态，
-默认不发送。真实复现需机器人急停/吊起。
+## Safety Boundary
 
-## 复现要点
-```
-ros2 service list | grep mc/sdk            # 服务面
-ros2 service call /mc/sdk/disable_check_command_stamp std_srvs/srv/SetBool "{data: true}"
-```
-返回成功即时间戳重放校验已关闭。
+⚠️ `start_ecat`, `start_mc`, `robot_command`, and replay-check configuration can alter robot motion state. The retained validation does not call them. Any dynamic test requires physical safety controls.
