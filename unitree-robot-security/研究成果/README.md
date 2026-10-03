@@ -1,10 +1,10 @@
-# 研究成果
+# Research Results
 
-本目录保存宇树及其他机器人研究的唯一权威漏洞说明，以及只负责串联漏洞的攻击链。
+This directory contains the canonical vulnerability descriptions for Unitree and other robot research, plus attack-chain documents whose sole purpose is to connect those findings.
 
 - [GO2](GO2/README.md)
 - [R1](R1/README.md)
-- [跨型号](跨型号/README.md)
-- [其他机器人](其他机器人/README.md)
-- [跨机器人](跨机器人/README.md)
-- [完整迁移清单](迁移清单.md)
+- [Cross-model](跨型号/README.md)
+- [Other robots](其他机器人/README.md)
+- [Cross-robot](跨机器人/README.md)
+- [Complete migration manifest](迁移清单.md)
