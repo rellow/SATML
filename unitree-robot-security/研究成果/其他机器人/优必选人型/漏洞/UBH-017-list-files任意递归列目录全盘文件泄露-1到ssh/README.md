@@ -1,146 +1,121 @@
 ---
-编号: UBH-017
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: list-files任意递归列目录全盘文件泄露-1到ssh
+ID: UBH-017
+validation_status: dynamically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: list-files任意递归列目录全盘文件泄露-1到ssh
 ---
-# UBH-017 t800-web-backend `/list-files` 任意递归列目录（全盘文件清单泄露）
+# UBH-017 t800-web-backend `/list-files` Arbitrary Recursive Directory Listing
 
-## 1. 一句话结论
+## 1. Summary
 
-- # t800-web-backend `/list-files` 任意递归列目录（全盘文件清单泄露）
-- ## 1. 执行摘要
-- **FastAPI :5000 `/list-files`（GET，`map_dir`/`is_map_folder` 参数可控）未认证即可任意递归
-- 严重度定级：**中危（Medium）**——未认证目录枚举；配合 export（读）/sysupload（写）放大。
-- # map_dir 任意；递归 walk；返回完整树
+The unauthenticated `GET /list-files` endpoint accepts a caller-controlled directory parameter and recursively enumerates that directory tree. The original report captured a roughly 60,040-entry root-level listing, making the endpoint useful for locating sensitive configuration, keys, scripts, and other files before combining it with separate read/write primitives.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- > 版本：2026-08-29 · 方法：源码审计 + 报告级证据 + 实机复核（当日）
-- 文件清单用于信息收集/横向定位敏感文件（密钥、配置、服务脚本）。**
-- → 全盘 60,040 文件树 → 定位 /root/.ssh、/etc/walker、服务脚本、密钥
-- - 组件：`t800-web-backend` v0.2.9（:5000 FastAPI）
-- **实机响应异常**：返回 `{"detail":"目录不存在: C:<用户目录>/AppData/Local/Temp"}` —— 服务端将
-- `/tmp` 解析为 **Windows 临时目录**（`C:<用户目录>/...`），与报告所述 Ubuntu/Alpine 容器环境不符。
+- Component: `t800-web-backend` v0.2.9 on port 5000.
+- Evidence combines source review, report-level evidence, and a 2026-08-29 live re-check.
+- The live re-check showed an unexpected Windows-style path mapping, which is preserved as an environment ambiguity.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`dynamically confirmed` for unauthenticated endpoint behavior; the exact runtime filesystem mapping observed in the later re-check requires clarification.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must reach port 5000. Directory listing is read-only, but any follow-on file access should remain within authorized data.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- **FastAPI :5000 `/list-files`（GET，`map_dir`/`is_map_folder` 参数可控）未认证即可任意递归
-- 严重度定级：**中危（Medium）**——未认证目录枚举；配合 export（读）/sysupload（写）放大。
-- ## 2. 漏洞根因
-- - 入口：`GET /list-files`，未认证
+The `map_dir` parameter is accepted without an allowed-root constraint or effective canonicalized-path check before recursive traversal.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+A caller supplies a target directory and receives recursive file-tree metadata. The retained validation uses benign directories and does not access file contents.
 
-## 7. 实际影响
+## 7. Impact
 
-- # t800-web-backend `/list-files` 任意递归列目录（全盘文件清单泄露）
-- 列目录，`map_dir=/` 时返回全盘文件树（报告提取 **60,040 条**清单 `list_root.json`）。
-- 严重度定级：**中危（Medium）**——未认证目录枚举；配合 export（读）/sysupload（写）放大。
-- → 全盘 60,040 文件树 → 定位 /root/.ssh、/etc/walker、服务脚本、密钥
-- ## 4. 受影响范围
-- 是物理设备还是本机复现环境后再定论；漏洞本质（参数未校验任意目录）不受影响，报告 60,040 清单为证。
+Directory enumeration can expose the names and locations of keys, configuration files, service scripts, SSH material, and other sensitive targets. Combined with separate arbitrary-read/write endpoints, this significantly lowers the cost of exploitation.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Keep tests read-only.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Require authentication.
+- Canonicalize `map_dir` and restrict it to explicit allowed roots.
+- Limit recursion depth and maximum result count.
+- Avoid returning sensitive filesystem topology to untrusted callers.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# t800-web-backend `/list-files` 任意递归列目录（全盘文件清单泄露）
+# t800-web-backend `/list-files` Arbitrary Recursive Directory Listing
 
-> 版本：2026-08-29 · 方法：源码审计 + 报告级证据 + 实机复核（当日）
+> Version: 2026-08-29 · Method: source audit + report evidence + live re-check
 
----
+## 1. Executive Summary
 
-## 1. 执行摘要
+`GET /list-files` accepts caller-controlled `map_dir` and `is_map_folder` parameters and recursively enumerates the selected path without authentication. The original report recorded a roughly **60,040-entry** file tree when using the root filesystem.
 
-**FastAPI :5000 `/list-files`（GET，`map_dir`/`is_map_folder` 参数可控）未认证即可任意递归
-列目录，`map_dir=/` 时返回全盘文件树（报告提取 **60,040 条**清单 `list_root.json`）。
-文件清单用于信息收集/横向定位敏感文件（密钥、配置、服务脚本）。**
+The source report rates this directory-enumeration issue **Medium**, while noting that it composes strongly with the separate export/read and sysupload/write findings.
 
-严重度定级：**中危（Medium）**——未认证目录枚举；配合 export（读）/sysupload（写）放大。
+## 2. Root Cause
 
----
-
-## 2. 漏洞根因
-
-代码：`t800-web-backend` `controller/`。
+Reconstructed logic:
 
 ```python
-# 伪代码还原
 @app.get("/list-files")
 def list_files(map_dir: str = "", is_map_folder: bool = False):
-    # map_dir 任意；递归 walk；返回完整树
+    # caller-controlled map_dir
+    # recursive traversal and return of the complete tree
 ```
 
-- `map_dir` 未做白名单/前缀校验。
+No allowed-root constraint was identified for `map_dir`.
 
-## 3. 攻击链
+## 3. Security Path
 
 ```
-GET :5000/list-files?map_dir=/&is_map_folder=true
-  → 全盘 60,040 文件树 → 定位 /root/.ssh、/etc/walker、服务脚本、密钥
+Unauthenticated GET /list-files?map_dir=<target>
+        ↓
+recursive filesystem tree
+        ↓
+locate SSH material, configuration, scripts, keys, or other targets
+        ↓
+combine with separate file-read/write primitives if available
 ```
 
-## 4. 受影响范围
+## 4. Affected Scope
 
-- 组件：`t800-web-backend` v0.2.9（:5000 FastAPI）
-- 入口：`GET /list-files`，未认证
+- Component: `t800-web-backend` v0.2.9.
+- Entry point: unauthenticated `GET /list-files`.
 
-## 5. 复现（实机复核，2026-08-29）
+## 5. Live Re-Check (2026-08-29)
 
-```bash
-curl -s -G "http://192.168.11.3:5000/list-files" \
-  --data-urlencode "map_dir=/tmp" --data-urlencode "is_map_folder=true"
-```
+A benign request using `map_dir=/tmp` returned an error containing a Windows-style temporary path rather than the expected Linux container path. That suggests the specific target reached by the later probe may have been a Windows-mapped reproduction environment rather than the physical robot service.
 
-**实机响应异常**：返回 `{"detail":"目录不存在: C:<用户目录>/AppData/Local/Temp"}` —— 服务端将
-`/tmp` 解析为 **Windows 临时目录**（`C:<用户目录>/...`），与报告所述 Ubuntu/Alpine 容器环境不符。
-说明当前探测目标的服务运行环境存在 Windows 路径映射（或为复现沙箱）。**该差异需澄清**：确认目标
-是物理设备还是本机复现环境后再定论；漏洞本质（参数未校验任意目录）不受影响，报告 60,040 清单为证。
+This discrepancy is retained explicitly. It does not change the source-level path-validation issue, but the exact live deployment environment should be clarified before making additional device-specific claims.
 
-## 6. 修复建议
+## 6. Recommendations
 
-1. 增加认证；
-2. `map_dir` realpath 归一化并限定于允许根目录；
-3. 去除递归深度的无界返回（限层数/条数）。
+1. Require authentication.
+2. Canonicalize `map_dir` and constrain it to approved roots.
+3. Bound traversal depth and response size.
 
-## 7. 证据文件
+## 7. Evidence
 
-| 文件 | 内容 |
-|---|---|
-| 报告 `WALKER_S2_PWN.md` | 60,040 文件清单提取、`/` 根目录递归列目录 |
-| `evidence/listfiles_live.txt` | 2026-08-29 实机响应（Windows 路径异常） |
+- Original `WALKER_S2_PWN.md` report with the large recursive listing.
+- `evidence/listfiles_live.txt` with the 2026-08-29 path-mapping anomaly.
