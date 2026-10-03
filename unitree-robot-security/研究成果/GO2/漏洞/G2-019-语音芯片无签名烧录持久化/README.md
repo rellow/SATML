@@ -29,12 +29,12 @@ The attacker must be able to reach the network, protocol, or service entry point
 
 ## 5. Root Cause
 
-源材料确认的核心安全缺陷为“语音芯片无签名烧录持久化”；根因位于输入信任边界、权限分离或安全状态校验不足.
+The source material identifies the core security issue as “语音芯片无签名烧录持久化”；根因位于输入信任边界、权限分离或安全状态校验不足.
 
 ## 6. Attack Procedure
 
 1. Reach the entry point described by the report and satisfy the stated preconditions.
-2. 使用脱敏复现清单medium的最小探针触发目标代码路径；
+2. Use the minimal probe from the sanitized reproduction manifest to exercise the target code path.
 3. Collect only non-destructive evidence such as status codes, process restarts, a minimal file marker, or `id`.
 4. Immediately perform cleanup and verify that services and configuration have been restored.
 
@@ -56,7 +56,7 @@ See `证据/材料清单.md` for the evidence index. Source material: 未动态�
 
 - Enforce strong authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point.
 - Apply allowlists and strict validation to lengths, indices, paths, state transitions, and target resources.
-- 将high风险服务降权并建立进程、文件系统和网络边界；
+- Drop privileges for high-risk services and establish process, filesystem, and network boundaries.
 - Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging.
 - Add automated regression tests and negative test cases for this vulnerability.
 
