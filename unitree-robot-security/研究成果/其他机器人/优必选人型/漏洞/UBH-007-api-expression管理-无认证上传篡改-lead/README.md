@@ -1,122 +1,124 @@
 ---
-编号: UBH-007
-验证状态: 候选
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: api-expression管理-无认证上传篡改-lead-1
+ID: UBH-007
+validation_status: candidate
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: api-expression管理-无认证上传篡改-lead-1
 ---
-# UBH-007 t800-web-backend `/api/expression/*` 表情管理无认证上传/篡改（LEAD）
+# UBH-007 t800-web-backend `/api/expression/*` Unauthenticated Expression Upload/Tampering — Lead
 
-## 1. 一句话结论
+## 1. Summary
 
-- `/api/expression/{key}`），报告此前未列。`GET /api/expressions` 未认证可读表情列表；
-- - 表情含 `video` 类型（mp4）——上传点可能接受任意视频文件 → 存储型内容注入/篡改。
-- - 未认证上传/篡改/删除机器人显示表情 → 展示内容注入（较低）；
-- - 若上传路径可控 → 任意文件写（升级为 High/Critical，需验证）。
+The live OpenAPI schema exposes expression-management routes including upload, update, delete, check, and fetch operations. `GET /api/expressions` was readable without authentication, and the observed list contained a newly generated non-default expression. This strongly motivates testing whether the write-side routes also lack authentication, but that write path remains **unconfirmed**.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- > 版本：2026-08-29 · 状态：**Lead（待验证）** · 方法：实机 openapi + 数据观测
+- Source snapshot: 2026-08-29.
+- Status: **Lead / pending validation**.
+- Evidence method: live OpenAPI inspection plus read-only data observation.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`候选`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`candidate`. No unauthenticated write/upload was performed in the retained evidence.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker would need network access to the t800 web backend. Verification must remain read-only until the authentication and path-handling behavior of the write endpoints is confirmed in an authorized environment.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # t800-web-backend `/api/expression/*` 表情管理无认证上传/篡改（LEAD）
-- `/api/expression/{key}`），报告此前未列。`GET /api/expressions` 未认证可读表情列表；
-- 2026-08-29 11:27:14），强烈暗示 `/api/expression/upload` 无认证可被远程调用生成表情。**
-- 3. 影响面：仅机器人头部屏幕显示（表达层），还是可越界写路径。
-- - 未认证上传/篡改/删除机器人显示表情 → 展示内容注入（较低）；
+Potentially missing authentication on the expression-management API. The current evidence establishes unauthenticated listing and the existence of write-capable routes, but does not yet establish that upload/update/delete are themselves unauthenticated.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The current investigation is limited to route discovery, method/authorization checks, and source-code review. No expression was uploaded, modified, or deleted as part of this lead.
 
-## 7. 实际影响
+## 7. Impact
 
-- 3. 影响面：仅机器人头部屏幕显示（表达层），还是可越界写路径。
-- ## 4. 潜在影响
+If write operations are unauthenticated, an attacker may be able to alter content displayed on the robot. If the upload path also permits attacker-controlled filesystem destinations, the severity could increase to arbitrary file write. That stronger outcome remains unverified.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Use read-only requests until the write-side behavior has been separately authorized and bounded.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Require authentication and authorization for every expression-management operation.
+- Validate file type, size, filename, and final storage path.
+- Separate read-only listing from write-capable administrative APIs.
+- Add audit logs and regression tests for unauthenticated upload/update/delete attempts.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- The finding remains a lead until the write-side authorization boundary is confirmed.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# t800-web-backend `/api/expression/*` 表情管理无认证上传/篡改（LEAD）
+# t800-web-backend `/api/expression/*` Unauthenticated Expression Upload/Tampering — Lead
 
-> 版本：2026-08-29 · 状态：**Lead（待验证）** · 方法：实机 openapi + 数据观测
+> Version: 2026-08-29 · Status: **Lead (pending validation)** · Method: live OpenAPI inspection + data observation
 
----
+## 1. Overview
 
-## 1. 概述
+The live `openapi.json` exposes expression-management routes that were not listed in the earlier report:
 
-**openapi.json 实机暴露 expression 管理路由（`/api/expressions`、`/api/expression/upload`、
-`/api/expression/delete`、`/api/expression/update`、`/api/expression/check/{key}`、
-`/api/expression/{key}`），报告此前未列。`GET /api/expressions` 未认证可读表情列表；
-列表中已出现**当日生成、来源不明的表情 `hacker by Polaris`**（`auto-generated by walker_face_text.py`，
-2026-08-29 11:27:14），强烈暗示 `/api/expression/upload` 无认证可被远程调用生成表情。**
+- `/api/expressions`
+- `/api/expression/upload`
+- `/api/expression/delete`
+- `/api/expression/update`
+- `/api/expression/check/{key}`
+- `/api/expression/{key}`
 
----
+`GET /api/expressions` was readable without authentication. The list contained a same-day, non-default expression named `hacker by Polaris`, described as `auto-generated by walker_face_text.py`. This observation strongly suggests that the upload route is actively used, but it does **not by itself prove** that unauthenticated remote callers can invoke the upload operation.
 
-## 2. 实机观测（2026-08-29）
+## 2. Live Observation (2026-08-29)
+
+The observed response included an expression resembling:
 
 ```json
-GET /api/expressions →
-{"code":200,...,"expressions":[{
-  "key":"text","filename":"text.mp4","name_cn":"hacker by Polaris",
-  "description":"auto-generated by walker_face_text.py","type":"video",
-  "update_time":"2026-08-29 11:27:14","file_size":24815, ...}]}
+{
+  "key": "text",
+  "filename": "text.mp4",
+  "name_cn": "hacker by Polaris",
+  "description": "auto-generated by walker_face_text.py",
+  "type": "video",
+  "update_time": "2026-08-29 11:27:14",
+  "file_size": 24815
+}
 ```
 
-- 表情含 `video` 类型（mp4）——上传点可能接受任意视频文件 → 存储型内容注入/篡改。
-- `hacker by Polaris` 由 `walker_face_text.py` 自动生成，非默认表情（`is_default:false`）。
+- The expression system supports `video` content such as MP4 files.
+- The observed entry was not marked as a default expression.
 
-## 3. 待验证项
+## 3. Items Still to Validate
 
-1. `/api/expression/upload` 是否需要认证（GET/OPTIONS 试探方法限制）；
-2. 上传参数（文件类型/大小/路径）、覆盖/删除是否校验；
-3. 影响面：仅机器人头部屏幕显示（表达层），还是可越界写路径。
+1. Whether `/api/expression/upload` requires authentication.
+2. Allowed upload methods, file types, sizes, and path handling.
+3. Whether update/delete operations enforce authorization.
+4. Whether the impact is limited to head-display content or whether the upload path can escape its intended storage directory.
 
-## 4. 潜在影响
+## 4. Potential Impact
 
-- 未认证上传/篡改/删除机器人显示表情 → 展示内容注入（较低）；
-- 若上传路径可控 → 任意文件写（升级为 High/Critical，需验证）。
+- Unauthenticated expression upload/update/delete could enable display-content injection.
+- If destination paths can be influenced, the issue could become an arbitrary-file-write primitive. That stronger claim requires separate evidence.
 
-## 5. 下一步
+## 5. Next Steps
 
-- 只读方式验证 upload 的认证状态与方法限制（不实际上传）；
-- 结合源码审计确认参数处理。
+- Validate authentication/method restrictions using read-only or non-mutating probes.
+- Review the implementation to understand parameter and path handling before attempting any write.
 
-## 6. 证据
+## 6. Evidence
 
-| 文件 | 内容 |
+| File | Content |
 |---|---|
-| `evidence/expressions_live.json` | /api/expressions 实机响应（含 hacker by Polaris） |
+| `evidence/expressions_live.json` | Live `/api/expressions` response containing the observed non-default expression |
