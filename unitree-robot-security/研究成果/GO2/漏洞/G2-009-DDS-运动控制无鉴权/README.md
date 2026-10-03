@@ -9,11 +9,11 @@ related_ai_sessions:
   - CC-GO2-001
 ---
 
-# G2-009 Unauthenticated DDS motion control
+# G2-009 Unauthenticated DDS Motion Control
 
 ## 1. Summary
 
-Unauthenticated DDS motion control。代码路径和根因已确认，但尚未完成无歧义的真机闭环。
+Unauthenticated DDS Motion Control. The code path and root cause are confirmed, but an unambiguous physical-device closed loop has not yet been completed.
 
 ## 2. Affected Products and Versions
 
@@ -21,24 +21,24 @@ Unitree GO2 Air; primary research baseline: stock firmware 1.1.15.
 
 ## 3. Validation Status
 
-`statically confirmed`。Migration decision: 明确 eth0/内部总线可达性。
+`statically confirmed`.Migration decision: explicitly state eth0/internal-bus reachability.
 
 ## 4. Attack Preconditions
 
-攻击者需要进入机器人本地系统、内部 eth0 总线或等价的后渗透位置。
+The attacker must have reached the robot's local system, internal eth0 bus, or an equivalent post-compromise position.
 
 ## 5. Root Cause
 
-服务在处理high影响请求前缺少有效的身份认证、授权或来源绑定。
+The service lacks effective authentication, authorization, or source binding before processing high-impact requests.
 
 ## 6. Attack Procedure
 
 1. Reach the entry point described by the report and satisfy the stated preconditions;
-2. 使用脱敏复现清单medium的最小探针触发目标代码路径；
+2. Use the minimal probe from the sanitized reproduction manifest to exercise the target code path.
 3. Collect only non-destructive evidence such as status codes, process restarts, a minimal file marker, or `id`;
 4. Immediately perform cleanup and verify that services and configuration have been restored.
 
-For `refuted` items, the “attack procedure” describes validation of the original hypothesis only; it does not imply that an exploitable path exists.
+For `refuted` items, the "attack procedure" describes validation of the original hypothesis only; it does not imply that an exploitable path exists.
 
 ## 7. Impact
 
@@ -50,14 +50,14 @@ The `复现/材料清单.md` file in this directory records the screened scripts
 
 ## 9. Supporting Evidence
 
-See `证据/材料清单.md` for the evidence index. 源材料：未动态闭环 06。Large or sensitive evidence that is not committed is recorded centrally in `材料清单/未提交材料.csv` at the repository root.
+See `证据/材料清单.md` for the evidence index. Source material: 未动态闭环 06.Large or sensitive evidence that is not committed is recorded centrally in `材料清单/未提交材料.csv` at the repository root.
 
 ## 10. Recommendations
 
 - Enforce strong authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point;
 - Apply allowlists and strict validation to lengths, indices, paths, state transitions, and target resources;
 - 将high风险服务降权并建立进程、文件系统和网络边界；
-- Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging;
+- Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging.
 - Add automated regression tests and negative test cases for this vulnerability.
 
 ## 11. Related AI Sessions
