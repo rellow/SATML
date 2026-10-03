@@ -30,7 +30,7 @@ The attacker must be able to reach the network, protocol, or service entry point
 
 ## 5. Root Cause
 
-完整性验证存在可绕过分支，未对最终执行的全部内容建立强制签名信任链.
+Integrity verification contains a bypassable branch and does not establish a mandatory signature trust chain over all ultimately executed content.
 
 ## 6. Attack Procedure
 
@@ -39,7 +39,7 @@ The attacker must be able to reach the network, protocol, or service entry point
 3. Collect only non-destructive evidence such as status codes, process restarts, a minimal file marker, or `id`.
 4. Immediately perform cleanup and verify that services and configuration have been restored.
 
-`refuted`项目的“攻击过程”仅指原假设的验证过程，不表示存在可利用攻击路径.
+For `refuted` items, the attack procedure describes validation of the original hypothesis only; it does not imply that an exploitable path exists.
 
 ## 7. Impact
 
@@ -57,7 +57,7 @@ See `证据/材料清单.md` for the evidence index. Source material: `AUD-ota-v
 
 - Enforce strong authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point.
 - Apply allowlists and strict validation to lengths, indices, paths, state transitions, and target resources.
-- 将high风险服务降权并建立进程、文件系统和网络边界；
+- Drop privileges for high-risk services and establish process, filesystem, and network boundaries.
 - Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging.
 - Add automated regression tests and negative test cases for this vulnerability.
 
@@ -69,5 +69,5 @@ See `证据/材料清单.md` for the evidence index. Source material: `AUD-ota-v
 
 ## 12. Disclosure Record
 
-- 当前披露状态：internal research.
+- Current disclosure status: internal research.
 - Before external disclosure, re-review the evidence, reproducibility, and vendor-coordination status according to `SECURITY.md`.
