@@ -1,15 +1,17 @@
-# CC-GO2-002：GO2 btgatt-server 分片重组溢出
+# CC-GO2-002: GO2 btgatt-server Fragment-Reassembly Overflow
 
-- Claude 会话编号：`501136fe-81b2-451b-978c-e33333a73967`
-- 会话完整性：完整
-- 源项目标识：`unitree`
-- 主会话状态：是；已脱敏副本：是
-- 子代理与工具结果：9 个文件
+- Claude session ID: `501136fe-81b2-451b-978c-e33333a73967`
+- Session completeness: complete
+- Source project identifier: `unitree`
+- Main session present: yes; sanitized copy present: yes
+- Sub-agent and tool-result artifacts: 9 files
 
-## 研究导读
+## Research Guide
 
-该会话因直接参与 GO2/R1 漏洞发现、复核、证伪或跨型号分析而进入精选区。会话记录保持原始事件顺序、角色、工具调用、失败尝试和结论修正；仅执行规范要求的最小必要脱敏。
+This session is included in the selected set because it directly contributed to GO2/R1 vulnerability discovery, re-verification, refutation, or cross-model analysis. The session record preserves the original event order, roles, tool calls, failed attempts, and conclusion revisions; only the minimum sanitization required by repository policy was applied.
 
-## 关联入口
+## Related Entry Points
 
-具体漏洞、攻击链和论文结论关联见 [会话索引](../../会话索引.md)。
+See the [session index](../../会话索引.md) for links to the associated vulnerabilities, attack chains, and paper claims.
+
+> The underlying JSONL and captured tool outputs retain their original wording as provenance evidence.
