@@ -1,71 +1,71 @@
 ---
-编号: G2-028
-验证状态: 候选
-严重程度: 中
-披露状态: 内部研究
-所属攻击链:
+ID: G2-028
+validation_status: candidate
+severity: medium
+disclosure_status: internal research
+attack_chains:
   []
-关联AI会话:
+related_ai_sessions:
   - CC-GO2-001
 ---
 
-# G2-028 串口自动登录运维痕迹
+# G2-028 Serial-Console Autologin / Operations Artifact
 
-## 1. 一句话结论
+## 1. Summary
 
-串口自动登录运维痕迹。当前仅有候选线索或关键运行时条件尚未确认。
+Serial-Console Autologin / Operations Artifact. Only candidate evidence is currently available, or a key runtime condition remains unconfirmed.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-宇树 GO2 Air；主要研究基线为 stock 1.1.15。
+Unitree GO2 Air; primary research baseline: stock firmware 1.1.15.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`候选`。迁移裁决：标记待真机物理核验。
+`candidate`.Migration decision: mark the finding as pending physical-device verification.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击者需能访问报告所述网络、协议或服务入口；具体可达性以本型号验证状态为准。
+The attacker must be able to reach the network, protocol, or service entry point described in the report; practical reachability is bounded by the validation status for this model.
 
-## 5. 根本原因
+## 5. Root Cause
 
-源材料确认的核心安全缺陷为“串口自动登录运维痕迹”；根因位于输入信任边界、权限分离或安全状态校验不足。
+The source material identifies the core security issue as Serial-Console Autologin / Operations Artifact; the root cause lies in inadequate input trust-boundary enforcement, privilege separation, or security-state validation.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-1. 到达报告所述入口并满足本节前提；
-2. 使用脱敏复现清单中的最小探针触发目标代码路径；
-3. 只采集状态码、进程重启、最小文件标记或 `id` 等无害证据；
-4. 立即执行清理步骤，并核验服务与配置已恢复。
+1. Reach the entry point described by the report and satisfy the stated preconditions.
+2. 使用脱敏复现清单medium的最小探针触发目标代码路径；
+3. Collect only non-destructive evidence such as status codes, process restarts, a minimal file marker, or `id`.
+4. Immediately perform cleanup and verify that services and configuration have been restored.
 
-`已证伪`项目的“攻击过程”仅指原假设的验证过程，不表示存在可利用攻击路径。
+For `refuted` items, the attack procedure describes validation of the original hypothesis only; it does not imply that an exploitable path exists.
 
-## 7. 实际影响
+## 7. Impact
 
-可能破坏机器人服务的机密性、完整性或可用性，并可作为组合攻击链的一环。
+May compromise the confidentiality, integrity, or availability of robot services and may serve as one stage of a composite attack chain.
 
-## 8. 复现方法
+## 8. Reproduction
 
-本目录的 `复现/材料清单.md` 记录筛选后的脚本或外部保管位置。所有参数必须使用占位符或实验环境变量；禁止填入真实 SN、密码、Token、Cookie、私钥或云凭据。动态项目优先使用最小无害命令并在完成后清理。
+The `复现/材料清单.md` file records screened scripts or their external storage locations. All parameters must use placeholders or experiment environment variables; real serial numbers, passwords, tokens, cookies, private keys, and cloud credentials are prohibited. For dynamically validated findings, prefer the smallest non-destructive command and clean up immediately afterward.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-证据索引见 `证据/材料清单.md`。源材料：未动态闭环 30。未提交的大型或敏感证据统一登记在仓库根目录 `材料清单/未提交材料.csv`。
+See `证据/材料清单.md` for the evidence index. Source material: 未动态闭环 30.Large or sensitive evidence that is not committed is recorded centrally in `材料清单/未提交材料.csv` at the repository root.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 在入口处实施强身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对长度、索引、路径、状态转换和目标资源使用允许列表；
-- 将高风险服务降权并建立进程、文件系统和网络边界；
-- 删除硬编码或共享凭据，轮换已暴露材料，并增加安全审计日志；
-- 为本漏洞加入自动化回归测试和负向用例。
+- Enforce strong authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point.
+- Apply allowlists and strict validation to lengths, indices, paths, state transitions, and target resources.
+- 将high风险服务降权并建立进程、文件系统和网络边界；
+- Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging.
+- Add automated regression tests and negative test cases for this vulnerability.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
 - [CC-GO2-001](../../../../AI轨迹/会话索引.md#cc-go2-001)
 
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须按 `SECURITY.md` 重新审查证据、复现能力和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review the evidence, reproducibility, and vendor-coordination status according to `SECURITY.md`.
