@@ -9,11 +9,11 @@ related_ai_sessions:
   - CC-GO2-001
 ---
 
-# G2-003 BLE provisioning injection and network hijacking
+# G2-003 BLE Provisioning Injection and Network Hijacking
 
 ## 1. Summary
 
-BLE provisioning injection and network hijacking。当前仅有candidate线索或关键运行时条件尚未确认。
+BLE Provisioning Injection and Network Hijacking. The code path and root cause are confirmed, but an unambiguous physical-device closed loop has not yet been completed.
 
 ## 2. Affected Products and Versions
 
@@ -21,24 +21,24 @@ Unitree GO2 Air; primary research baseline: stock firmware 1.1.15.
 
 ## 3. Validation Status
 
-`candidate`。Migration decision: 保留待真机闭环限制。
+`candidate`.Migration decision: retain the limitation that physical-device closure is still pending.
 
 ## 4. Attack Preconditions
 
-攻击者需要处于 BLE 近场范围；需要会话材料的步骤已在复现说明medium单独标注。
+The attacker must be within BLE radio range. Steps requiring session material are identified separately in the reproduction documentation.
 
 ## 5. Root Cause
 
-The source material identifies the core security issue as“BLE provisioning injection and network hijacking”; the root cause lies in inadequate input trust-boundary enforcement, privilege separation, or security-state validation.
+The source material identifies the core security issue as"BLE provisioning injection and network hijacking"; the root cause lies in inadequate input trust-boundary enforcement, privilege separation, or security-state validation.
 
 ## 6. Attack Procedure
 
 1. Reach the entry point described by the report and satisfy the stated preconditions;
-2. 使用脱敏复现清单medium的最小探针触发目标代码路径；
+2. Use the minimal probe from the sanitized reproduction manifest to exercise the target code path.
 3. Collect only non-destructive evidence such as status codes, process restarts, a minimal file marker, or `id`;
 4. Immediately perform cleanup and verify that services and configuration have been restored.
 
-For `refuted` items, the “attack procedure” describes validation of the original hypothesis only; it does not imply that an exploitable path exists.
+For `refuted` items, the "attack procedure" describes validation of the original hypothesis only; it does not imply that an exploitable path exists.
 
 ## 7. Impact
 
@@ -50,14 +50,14 @@ The `复现/材料清单.md` file in this directory records the screened scripts
 
 ## 9. Supporting Evidence
 
-See `证据/材料清单.md` for the evidence index. 源材料：`Go2_BLE配网注入劫持网络`。Large or sensitive evidence that is not committed is recorded centrally in `材料清单/未提交材料.csv` at the repository root.
+See `证据/材料清单.md` for the evidence index. Source material: `Go2_BLE配网注入劫持网络`.Large or sensitive evidence that is not committed is recorded centrally in `材料清单/未提交材料.csv` at the repository root.
 
 ## 10. Recommendations
 
 - Enforce strong authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point;
 - Apply allowlists and strict validation to lengths, indices, paths, state transitions, and target resources;
 - 将high风险服务降权并建立进程、文件系统和网络边界；
-- Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging;
+- Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging.
 - Add automated regression tests and negative test cases for this vulnerability.
 
 ## 11. Related AI Sessions
