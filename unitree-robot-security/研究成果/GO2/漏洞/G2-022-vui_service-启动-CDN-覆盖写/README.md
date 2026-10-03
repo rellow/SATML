@@ -29,7 +29,7 @@ The attacker must be able to reach the network, protocol, or service entry point
 
 ## 5. Root Cause
 
-The source material identifies the core security issue as “vui_service 启动 CDN 覆盖写”；根因位于输入信任边界、权限分离或安全状态校验不足.
+The source material identifies the core security issue as a vui_service startup CDN overwrite; the root cause lies in inadequate input trust-boundary enforcement, privilege separation, or security-state validation.
 
 ## 6. Attack Procedure
 
