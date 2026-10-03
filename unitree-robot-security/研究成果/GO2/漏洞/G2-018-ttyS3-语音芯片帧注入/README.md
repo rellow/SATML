@@ -29,7 +29,7 @@ The attacker must have reached the robot's local system, internal eth0 bus, or a
 
 ## 5. Root Cause
 
-The source material identifies the core security issue as “ttyS3 语音芯片帧注入”；根因位于输入信任边界、权限分离或安全状态校验不足.
+The source material identifies the core security issue as ttyS3 voice-chip frame injection; the root cause lies in inadequate input trust-boundary enforcement, privilege separation, or security-state validation.
 
 ## 6. Attack Procedure
 
