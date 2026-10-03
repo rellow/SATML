@@ -1,7 +1,7 @@
 ---
 ID: G2-011
 validation_status: statically confirmed
-severity: 高
+severity: high
 disclosure_status: internal research
 attack_chains:
   - GO2-CHAIN-002
@@ -67,5 +67,5 @@ See `证据/材料清单.md` for the evidence index. Source material: 未动态�
 
 ## 12. Disclosure Record
 
-- 当前disclosure_status: internal research.
+- Current disclosure status: internal research.
 - Before external disclosure, re-review the evidence, reproducibility, and vendor-coordination status according to `SECURITY.md`.
