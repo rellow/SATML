@@ -1,156 +1,140 @@
 ---
-编号: UBH-009
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: api-sysupload任意路径写-宿主root-RCE
+ID: UBH-009
+validation_status: dynamically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: api-sysupload任意路径写-宿主root-RCE
 ---
-# UBH-009 t800-web-backend 任意路径写 → 【宿主 root】RCE（容器 root + 宿主 bind-mount）
+# UBH-009 t800-web-backend Arbitrary Path Write to Host-Root RCE
 
-## 1. 一句话结论
+## 1. Summary
 
-- # t800-web-backend 任意路径写 → 【宿主 root】RCE（容器 root + 宿主 bind-mount）
-- > 版本：2026-08-29 · **实机验证**：未认证 → 写宿主 `/root/.ssh/authorized_keys` → `ssh root@vision` → 宿主 root shell ✅
-- > 与 RCE#1（跨板 motion）**同根因**（`/api/sysupload` 未认证任意写），但影响升级为**宿主根权限**。
-- ## 1. 执行摘要
-- \| 宿主 Source \| 容器 Dest \| 权限 \|
+The unauthenticated `/api/sysupload` endpoint permits an arbitrary local destination path. Because the web-backend container runs as root and bind-mounts sensitive host paths read/write, the container write can directly modify the host filesystem. The source report dynamically closed the chain on the researcher-owned vision board and restored the modified file afterward.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- > 版本：2026-08-29 · **实机验证**：未认证 → 写宿主 `/root/.ssh/authorized_keys` → `ssh root@vision` → 宿主 root shell ✅
+- Evidence date: 2026-08-29.
+- Component: `walker-web.web-backend-1`, t800-web-backend v0.2.9.
+- The container runs as root and has read/write bind mounts including host SSH/configuration locations.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`dynamically confirmed`. The source report records a complete backup → benign authorized modification → privileged login validation → restoration cycle on the owned device.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must reach the unauthenticated web backend. Reproduction must be limited to researcher-owned hardware, with backups and automatic cleanup/restoration.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- > 版本：2026-08-29 · **实机验证**：未认证 → 写宿主 `/root/.ssh/authorized_keys` → `ssh root@vision` → 宿主 root shell ✅
-- > 与 RCE#1（跨板 motion）**同根因**（`/api/sysupload` 未认证任意写），但影响升级为**宿主根权限**。
-- 严重度：**严重（Critical）**——未认证任意文件写直达宿主 root。
-- ## 2. 关键根因（比 RCE#1 新增的部分）
-- 同一 `sysupload` 根因的两种最大影响：
+Three properties compose:
 
-## 6. 攻击过程
+1. `/api/sysupload` accepts caller-controlled destination paths without a safe-root allowlist.
+2. The container runs as root.
+3. Sensitive host directories are mounted read/write into the container.
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+This makes an arbitrary container-path write equivalent to an arbitrary host-path write for mounted locations.
 
-## 7. 实际影响
+## 6. Attack Procedure
 
-- # t800-web-backend 任意路径写 → 【宿主 root】RCE（容器 root + 宿主 bind-mount）
-- > 版本：2026-08-29 · **实机验证**：未认证 → 写宿主 `/root/.ssh/authorized_keys` → `ssh root@vision` → 宿主 root shell ✅
-- > 与 RCE#1（跨板 motion）**同根因**（`/api/sysupload` 未认证任意写），但影响升级为**宿主根权限**。
-- `walker-web.web-backend-1`（t800-web-backend v0.2.9）**以 root 运行**（`Config.User` 为空），
-- \| `/root/.ssh` \| `/root/.ssh` \| rw \|
-- 攻击者仅凭 HTTP 写宿主 root 的 `authorized_keys` → **`ssh <访问令牌_01>.168.11.3` → 宿主 root shell**
+The retained artifact documents the chain and includes a harmless probe mode. Sensitive credential values and reusable private material are not reproduced in the English report.
 
-## 8. 复现方法
+## 7. Impact
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+An unauthenticated network caller can cross the container boundary and obtain host-root authority on the vision board. The source report rates this **Critical** because it is a zero-credential arbitrary-write-to-root chain.
 
-## 9. 支撑证据
+## 8. Reproduction
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Reproduction Material Manifest](复现/材料清单.md). Prefer the safe probe mode; any full chain must back up and restore the affected authorization file on the owned device.
 
-## 10. 修复建议
+## 9. Supporting Evidence
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 11. 相关 AI 会话
+## 10. Recommendations
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+- Authenticate and authorize `/api/sysupload`.
+- Restrict destination paths to a narrow upload directory after canonicalization.
+- Run the web container as a non-root user.
+- Remove read/write bind mounts of host-sensitive directories.
+- Add regression tests for arbitrary absolute/traversal paths and host-mount escapes.
 
-## 12. 披露记录
+## 11. Related AI Sessions
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 13. 脱敏后的原始研究正文
+## 12. Disclosure Record
 
-# t800-web-backend 任意路径写 → 【宿主 root】RCE（容器 root + 宿主 bind-mount）
+- Current disclosure status: internal research.
 
-> 版本：2026-08-29 · **实机验证**：未认证 → 写宿主 `/root/.ssh/authorized_keys` → `ssh root@vision` → 宿主 root shell ✅
-> 与 RCE#1（跨板 motion）**同根因**（`/api/sysupload` 未认证任意写），但影响升级为**宿主根权限**。
+## 13. Sanitized Original Research Body
 
----
+# t800-web-backend Arbitrary Path Write to Host-Root RCE
 
-## 1. 执行摘要
+> Version: 2026-08-29 · **Live validation on the researcher-owned device**: unauthenticated web write → host authorization-file modification → privileged host login → restoration.
+> This finding shares the `/api/sysupload` root cause with the cross-board write finding but has a shorter and higher-impact local host path.
 
-`walker-web.web-backend-1`（t800-web-backend v0.2.9）**以 root 运行**（`Config.User` 为空），
-且 bind-mount 直通宿主文件系统（`docker inspect` 实锤）：
+## 1. Executive Summary
 
-| 宿主 Source | 容器 Dest | 权限 |
+The `walker-web.web-backend-1` container runs as root and exposes host files through read/write bind mounts. The source report confirmed mounts corresponding to:
+
+| Host Source | Container Destination | Mode |
 |---|---|---|
 | `/root/.ssh` | `/root/.ssh` | rw |
 | `/etc/walker` | `/etc/walker` | rw |
 | `/tmp` | `/tmp` | rw |
 | `/home/walker/.ssh` | `/home/ubt/.ssh` | rw |
-| `/etc/localtime` `/etc/timezone` | 同 | rw |
 
-因此 `/api/sysupload board_name=vision` 的“任意路径写”实际落在**宿主文件系统**。
-攻击者仅凭 HTTP 写宿主 root 的 `authorized_keys` → **`ssh <访问令牌_01>.168.11.3` → 宿主 root shell**
-（实测 `uid=0(root)`，`uname=aarch64`，无需跨板、无需任何前置凭证）。
+Because `board_name=vision` writes the caller-selected `path/filename` locally, a request through `/api/sysupload` can write into those host-mounted paths.
 
-严重度：**严重（Critical）**——未认证任意文件写直达宿主 root。
+The source report dynamically validated a root-access chain on the owned vision board, then restored the original authorization file and permissions.
 
-## 2. 关键根因（比 RCE#1 新增的部分）
+## 2. Root Cause
 
-- **容器以 root 运行**（镜像未降权，`User` 为空）；
-- **宿主敏感目录被 rw bind-mount 进容器**：`/root/.ssh`、`/etc/walker`、`/tmp`；
-- 宿主 `/root/.ssh` **可写**（此前误判为只读——HTTP 500 实为 EISDIR：`os.makedirs(path)`
-  把 `path` 建成目录导致 `open()` 撞目录。本机 `docker inspect` 显示该 mount 为 `rw`）。
+- The container is not privilege-dropped.
+- Sensitive host directories are bind-mounted read/write.
+- The upload endpoint accepts unrestricted path/filename combinations.
 
-## 3. 攻击链（实测）
+A previous interpretation that one host SSH mount was read-only was corrected by live `docker inspect` evidence; the earlier HTTP error was caused by an accidental directory/file collision rather than a read-only mount.
+
+## 3. Validated Chain
 
 ```
-POST :5000/api/sysupload  board_name=vision  path=/root/.ssh  filename=authorized_keys
-  内容 = 原 authorized_keys(111B) + 新 RSA 公钥
-  → 容器 root 经 bind-mount 直接写宿主 /root/.ssh/authorized_keys
-  → ssh -i 新私钥 <访问令牌_01>.168.11.3  →  uid=0(root)  hostname=vision  uname=aarch64
-  → 宿主 root shell ✅
+Unauthenticated /api/sysupload
+        ↓
+write controlled content into a host-mounted authorization path
+        ↓
+authenticate to the owned vision board using the added test credential
+        ↓
+host uid=0 confirmed
+        ↓
+restore the original file and permissions
 ```
 
-## 4. 复现（实机验证）
+Reusable key material is not included in this translation.
 
-`python scripts/vision_host_root_rce.py --rce` 全流程：
-```
-[1] 探针   path=/root/.ssh filename=.write_probe_<rand> → HTTP 200 → export 读回一致 → 宿主可写 ✅
-[2] 备份   export 穿越读宿主 /root/.ssh/authorized_keys（111B）→ evidence/backup_authorized_keys.host_root
-[3] 注入   path=/root/.ssh filename=authorized_keys（原内容+新公钥）→ HTTP 200
-[4] SHELL  ssh -i 新私钥 <访问令牌_01>.168.11.3 → uid=0(root) vision aarch64  ✅
-[5] 恢复   写回原 111B chmod 600 → wc=111 ✅
-```
-> 实测输出：`evidence/host_root_rce_2026-08-29.txt`
-> 手动 shell：`ssh -i scripts/host_root_key.pem <访问令牌_01>.168.11.3`
+## 4. Live Validation Workflow
 
-**无害探针**：`python scripts/vision_host_root_rce.py --probe`（写/读/清探针文件，不动 authorized_keys）。
+The retained `vision_host_root_rce.py` separates a harmless `--probe` mode from the full authorized validation mode.
 
-## 5. 与 RCE#1 的关系
+The source run performed:
 
-同一 `sysupload` 根因的两种最大影响：
-- RCE#1：`board_name=motion` 跨板 SFTP 写 motion 板 → motion root（依赖后端 SFTP 通道 + 硬编码 <密码_01>）；
-- RCE#2：`board_name=vision` 容器本地写 → **宿主** root（依赖容器 root + 宿主 bind-mount）。
-RCE#2 影响更大、链路更短。
+1. benign temporary write/readback;
+2. backup of the original authorization file;
+3. controlled addition of a temporary research key;
+4. root-login verification;
+5. restoration and byte-count verification.
 
-## 6. 修复建议
+Evidence is retained in `evidence/host_root_rce_2026-08-29.txt`.
 
-1. 镜像降权：容器不以 root 运行（`USER` 非 root + 无特权）；
-2. 移除 `/root/.ssh`、`/etc/walker` 等宿主敏感目录的 rw bind-mount（只读或数据卷）；
-3. `/api/sysupload` 认证 + `path` 白名单（同 RCE#1 建议）。
+## 5. Relationship to the Cross-Board Finding
 
-## 7. 证据文件
+- UBH-010 uses the same endpoint to write through an internal SFTP path to the motion board.
+- UBH-009 is shorter: the vision-side container write directly reaches the host through bind mounts.
 
-| 文件 | 内容 |
-|---|---|
-| `evidence/host_root_rce_2026-08-29.txt` | 完整实机宿主 root RCE 输出 |
-| `evidence/backup_authorized_keys.host_root` | 宿主原 `authorized_keys`（111B，恢复用） |
-| `scripts/vision_host_root_rce.py` | 全链 PoC（`--probe` 无害 / `--rce` / `--restore`） |
-| `scripts/check_root_ssh.py` | 查看宿主 `/root/.ssh` 现状（只读） |
+## 6. Recommendations
+
+1. Run the web backend as non-root.
+2. Remove read/write host mounts for SSH/configuration directories.
+3. Add authentication and a canonicalized destination allowlist to `/api/sysupload`.
