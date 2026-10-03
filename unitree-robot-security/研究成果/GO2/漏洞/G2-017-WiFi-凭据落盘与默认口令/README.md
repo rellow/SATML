@@ -34,7 +34,7 @@ Long-lived credentials are hard-coded, shared, recorded in cleartext, or incorre
 ## 6. Attack Procedure
 
 1. Reach the entry point described by the report and satisfy the stated preconditions.
-2. 使用脱敏复现清单medium的最小探针触发目标代码路径；
+2. Use the minimal probe from the sanitized reproduction manifest to exercise the target code path.
 3. Collect only non-destructive evidence such as status codes, process restarts, a minimal file marker, or `id`.
 4. Immediately perform cleanup and verify that services and configuration have been restored.
 
@@ -56,7 +56,7 @@ See `证据/材料清单.md` for the evidence index. Source material: 未动态�
 
 - Enforce strong authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point.
 - Apply allowlists and strict validation to lengths, indices, paths, state transitions, and target resources.
-- 将high风险服务降权并建立进程、文件系统和网络边界；
+- Drop privileges for high-risk services and establish process, filesystem, and network boundaries.
 - Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging.
 - Add automated regression tests and negative test cases for this vulnerability.
 
