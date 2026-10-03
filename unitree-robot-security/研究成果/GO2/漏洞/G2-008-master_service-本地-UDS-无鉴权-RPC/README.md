@@ -56,7 +56,7 @@ See `证据/材料清单.md` for the evidence index. Source material: 未动态�
 
 - Enforce strong authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point;
 - Apply allowlists and strict validation to lengths, indices, paths, state transitions, and target resources;
-- 将high风险服务降权并建立进程、文件系统和网络边界；
+- Drop privileges for high-risk services and establish process, filesystem, and network boundaries.
 - Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging.
 - Add automated regression tests and negative test cases for this vulnerability.
 
