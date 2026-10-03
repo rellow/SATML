@@ -1,73 +1,72 @@
 ---
-编号: R1-006
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-所属攻击链:
+ID: R1-006
+validation_status: dynamically confirmed
+severity: high
+disclosure_status: internal research
+attack_chains:
   - R1-CHAIN-002
-关联AI会话:
+related_ai_sessions:
   - CC-R1-001
   - CC-R1-002
 ---
 
-# R1-006 chat_go 知识库路径穿越写入
+# R1-006 chat_go Knowledge-Base Path-Traversal Write
 
-## 1. 一句话结论
+## 1. Summary
 
-chat_go 知识库路径穿越写入。结论已有真机或真实服务闭环证据。
+The chat_go knowledge-base interface allows a path-traversal write. The conclusion is supported by closed-loop evidence from a physical device or live service.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-宇树 R1；主要研究基线为 1.4.2。
+Unitree R1; primary research baseline: firmware 1.4.2.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。迁移裁决：作为 R1-CHAIN-002 投放原语。
+`dynamically confirmed`. Migration decision: retained as the file-placement primitive for R1-CHAIN-002.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击者需能访问报告所述网络、协议或服务入口；具体可达性以本型号验证状态为准。
+The attacker must be able to reach the network, protocol, or service entry point described in the report; practical reachability is bounded by the validation status for this model.
 
-## 5. 根本原因
+## 5. Root Cause
 
-文件名、路径或目标目录缺少规范化与允许列表校验，使攻击者输入进入高权限文件操作。
+Filenames, paths, or target directories are not adequately canonicalized or allowlisted, allowing attacker-controlled input to reach privileged file operations.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-1. 到达报告所述入口并满足本节前提；
-2. 使用脱敏复现清单中的最小探针触发目标代码路径；
-3. 只采集状态码、进程重启、最小文件标记或 `id` 等无害证据；
-4. 立即执行清理步骤，并核验服务与配置已恢复。
+1. Reach the entry point described by the report and satisfy the stated preconditions.
+2. Use the minimal probe from the sanitized reproduction manifest to exercise the target code path.
+3. Collect only non-destructive evidence such as status codes, process restarts, a minimal file marker, or `id`.
+4. Immediately perform cleanup and verify that services and configuration have been restored.
 
-`已证伪`项目的“攻击过程”仅指原假设的验证过程，不表示存在可利用攻击路径。
+For `refuted` items, the attack procedure describes validation of the original hypothesis only; it does not imply that an exploitable path exists.
 
-## 7. 实际影响
+## 7. Impact
 
-可能破坏机器人服务的机密性、完整性或可用性，并可作为组合攻击链的一环。
+May compromise the confidentiality, integrity, or availability of robot services and may serve as one stage of a composite attack chain.
 
-## 8. 复现方法
+## 8. Reproduction
 
-本目录的 `复现/材料清单.md` 记录筛选后的脚本或外部保管位置。所有参数必须使用占位符或实验环境变量；禁止填入真实 SN、密码、Token、Cookie、私钥或云凭据。动态项目优先使用最小无害命令并在完成后清理。
+The `复现/材料清单.md` file records screened scripts or their external storage locations. All parameters must use placeholders or experiment environment variables; real serial numbers, passwords, tokens, cookies, private keys, and cloud credentials are prohibited. For dynamically validated findings, prefer the smallest non-destructive command and clean up immediately afterward.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-证据索引见 `证据/材料清单.md`。源材料：`chat_go知识库任意文件写RCE`。未提交的大型或敏感证据统一登记在仓库根目录 `材料清单/未提交材料.csv`。
+See `证据/材料清单.md` for the evidence index. Source material: `chat_go知识库任意文件写RCE`. Large or sensitive evidence that is not committed is recorded centrally in `材料清单/未提交材料.csv` at the repository root.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 在入口处实施强身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对长度、索引、路径、状态转换和目标资源使用允许列表；
-- 将高风险服务降权并建立进程、文件系统和网络边界；
-- 删除硬编码或共享凭据，轮换已暴露材料，并增加安全审计日志；
-- 为本漏洞加入自动化回归测试和负向用例。
+- Enforce strong authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point.
+- Apply allowlists and strict validation to lengths, indices, paths, state transitions, and target resources.
+- Drop privileges for high-risk services and establish process, filesystem, and network boundaries.
+- Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging.
+- Add automated regression tests and negative test cases for this vulnerability.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
 - [CC-R1-001](../../../../AI轨迹/会话索引.md#cc-r1-001)
 - [CC-R1-002](../../../../AI轨迹/会话索引.md#cc-r1-002)
 
+## 12. Disclosure Record
 
-## 12. 披露记录
-
-- 当前披露状态：内部研究。
-- 对外披露前必须按 `SECURITY.md` 重新审查证据、复现能力和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review the evidence, reproducibility, and vendor-coordination status according to `SECURITY.md`.
