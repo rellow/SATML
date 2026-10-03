@@ -1,9 +1,11 @@
-# AI 研究轨迹
+# AI Research Traces
 
-本目录保存与宇树 GO2/R1 研究直接相关的 Claude Code 会话。主会话和子代理记录保持事件顺序与原始措辞，仅做必要脱敏；没有主 JSONL 的条目明确标为“仅记忆摘要”或“仅索引”。
+This directory preserves Claude Code sessions directly related to the Unitree GO2/R1 research. Main-session and sub-agent records preserve event order and original wording, with only necessary sanitization. Entries without a main JSONL are explicitly labeled as **memory summary only** or **index only**.
 
-- [会话索引](会话索引.md)
-- [精选会话](精选会话/)
-- [会话归档](会话归档/)
+- [Session index](会话索引.md)
+- [Selected sessions](精选会话/)
+- [Session archive](会话归档/)
 
-全局配置、环境快照、登录状态、缓存、插件和无关会话不会进入仓库。
+Global configuration, environment snapshots, login state, caches, plugins, and unrelated sessions are not included in the repository.
+
+> Raw session transcripts are provenance artifacts. Their recorded language is intentionally preserved; the surrounding indexes, metadata, and documentation are translated instead.
