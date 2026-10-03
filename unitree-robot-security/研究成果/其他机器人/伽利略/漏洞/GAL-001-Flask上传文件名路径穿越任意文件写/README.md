@@ -1,164 +1,131 @@
 ---
-编号: GAL-001
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 伽利略
-源候选目录: Flask上传文件名路径穿越任意文件写-1
+ID: GAL-001
+validation_status: dynamically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: Galileo
+source_candidate_directory: Flask上传文件名路径穿越任意文件写-1
 ---
-# GAL-001 伽利略（Galileo）机器人 /upload 文件名路径穿越 —— 任意 *.tar.gz 文件写 漏洞报告
+# GAL-001 Galileo /upload Filename Path Traversal to Arbitrary *.tar.gz File Write
 
-## 1. 一句话结论
+## 1. Summary
 
-- # 伽利略（Galileo）机器人 /upload 文件名路径穿越 —— 任意 *.tar.gz 文件写 漏洞报告
-- \| 漏洞类型 \| 路径穿越 → 任意文件写（独立于 install.sh 执行链的写原语） \|
-- \| 权限 \| 未授权 → 以服务用户写**任意含 `tar.gz` 的路径** \|
-- ## 1. 漏洞概述
-- ## 2. 与 install.sh RCE（#1）的区别
+The unauthenticated Flask `POST /upload` handler preserves the multipart filename and joins it directly beneath the upload directory without sanitizing absolute paths or traversal. Because the extension check is a substring match for `tar.gz`, an attacker can write arbitrary content to any writable path whose name contains that substring. The file is saved before archive extraction, so the write succeeds even if tar extraction later fails.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 目标设备 \| 伽利略（Galileo）GRQ05W（固件 galileo-inter 1.0.44） \|
-- \| 漏洞组件 \| Flask 管理后台 `POST /upload`（`routes/upload.py` → `utils/file_utils.py!upload_and_extract_file`） \|
-- \| 权限 \| 未授权 → 以服务用户写**任意含 `tar.gz` 的路径** \|
-- \| 授权边界 \| 仅对自有设备、隔离环境进行 \|
-- 2. **`os.path.join` 遇绝对路径组件重置前缀**：`join('/tmp/uploads','/etc/x.tar.gz')`==`/etc/x.tar.gz`。
-- ┌─ 覆盖 /home/galileo/123.tar.gz（230MB 固件升级包）→ 供应链/升级注入
+- Target: Galileo GRQ05W, firmware `galileo-inter 1.0.44`.
+- Component: Flask management backend `POST /upload`.
+- Validation: dynamically reproduced in an authorized isolated environment.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`dynamically confirmed`.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must reach the unauthenticated Flask management service. Reproduction must use researcher-owned devices and harmless destination files.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # 伽利略（Galileo）机器人 /upload 文件名路径穿越 —— 任意 *.tar.gz 文件写 漏洞报告
-- \| 漏洞类型 \| 路径穿越 → 任意文件写（独立于 install.sh 执行链的写原语） \|
+Two path-validation defects compose:
 
-## 6. 攻击过程
+1. `allowed_file()` checks whether the string `tar.gz` occurs anywhere in the filename instead of enforcing a safe suffix.
+2. `os.path.join` is used with the unsanitized filename, so absolute paths or traversal can escape the upload directory.
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The implementation writes the file before invoking tar, so archive validity does not prevent the file-write primitive.
 
-## 7. 实际影响
+## 6. Attack Procedure
 
-- \| 严重度 \| 🟠 High（外部审计标 Critical；详见 §6 约束说明） \|
-- ## 5. 影响范围
-- （若能找到某个含 tar.gz 且被 root/sudo 消费的路径，则可升级回 Critical。）
+A multipart upload supplies a filename containing `tar.gz` plus an absolute or traversed destination. The retained proof uses harmless content and authorized paths.
 
-## 8. 复现方法
+## 7. Impact
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+The primitive can overwrite or create attacker-controlled `*.tar.gz`-named files in writable locations, including firmware/distribution packages, or consume disk space. The filename constraint prevents direct writes to arbitrary names such as `authorized_keys`, so the source report rates the practical impact **High**, not automatically Critical.
 
-## 9. 支撑证据
+## 8. Reproduction
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Reproduction Material Manifest](复现/材料清单.md). Use only harmless target paths.
 
-## 10. 修复建议
+## 9. Supporting Evidence
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 11. 相关 AI 会话
+## 10. Recommendations
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+- Sanitize filenames with a strict basename operation.
+- Reject absolute paths and traversal components.
+- Replace substring matching with exact `.tar.gz` suffix validation.
+- Validate archive type before saving/processing it.
+- Require authentication on the management interface.
 
-## 12. 披露记录
+## 11. Related AI Sessions
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 13. 脱敏后的原始研究正文
+## 12. Disclosure Record
 
-# 伽利略（Galileo）机器人 /upload 文件名路径穿越 —— 任意 *.tar.gz 文件写 漏洞报告
+- Current disclosure status: internal research.
 
-| 项 | 值 |
+## 13. Sanitized Original Research Body
+
+# Galileo /upload Filename Path Traversal to Arbitrary *.tar.gz File Write
+
+| Item | Value |
 |---|---|
-| 目标设备 | 伽利略（Galileo）GRQ05W（固件 galileo-inter 1.0.44） |
-| 漏洞组件 | Flask 管理后台 `POST /upload`（`routes/upload.py` → `utils/file_utils.py!upload_and_extract_file`） |
-| 漏洞类型 | 路径穿越 → 任意文件写（独立于 install.sh 执行链的写原语） |
-| 权限 | 未授权 → 以服务用户写**任意含 `tar.gz` 的路径** |
-| 严重度 | 🟠 High（外部审计标 Critical；详见 §6 约束说明） |
-| 复现日期 | 2026-08-29（外部审计本地验证 PASSED） |
-| 授权边界 | 仅对自有设备、隔离环境进行 |
+| Target | Galileo GRQ05W (`galileo-inter 1.0.44`) |
+| Component | Flask management backend `POST /upload` → `upload_and_extract_file` |
+| Type | Path traversal → arbitrary constrained file write |
+| Privilege | Unauthenticated caller writes with service-user permissions |
+| Severity | High |
+| Validation Date | 2026-08-29 |
 
----
+## Vulnerability Mechanism
 
-## 1. 漏洞概述
-
-`/upload` 把 multipart `Content-Disposition: filename=` **原样**取为文件名，直接
-`os.path.join(UPLOAD_FOLDER, file.filename)` 后 `file.save()`，全程**未调 `secure_filename`**：
+Reconstructed source logic:
 
 ```python
-# utils/file_utils.py!upload_and_extract_file（还原自 pyc）
-if not allowed_file(file.filename): return {'status':'error',...}
-file_path = os.path.join(upload_folder, file.filename)   # ← filename 原样拼接
-file.save(file_path)                                     # ← 写盘，先于 tar
-subprocess.run(['tar','-xzf', file_path, '-C', upload_folder], check=True)  # 之后失败也无所谓
+if not allowed_file(file.filename):
+    return error
+file_path = os.path.join(upload_folder, file.filename)
+file.save(file_path)
+subprocess.run(["tar", "-xzf", file_path, "-C", upload_folder], check=True)
 ```
 
-两个缺陷：
-1. **`allowed_file()` 是子串匹配**：`any(ext in filename for ext in ALLOWED_EXTENSIONS)`
-   （`['tar.gz']`）—— 不是后缀校验，`/etc/…/pwn.tar.gz`、`../../…/x.tar.gz` 均满足。
-2. **`os.path.join` 遇绝对路径组件重置前缀**：`join('/tmp/uploads','/etc/x.tar.gz')`==`/etc/x.tar.gz`。
+The source report identifies two issues:
 
-且 `file.save()` 在 `tar -xzf` **之前**执行——即使上传的不是合法 gzip、tar 报错，**文件早已落盘**。
+- `allowed_file()` performs substring matching against `tar.gz`.
+- The unsanitized filename can be absolute or traversed, allowing the final save path to escape the upload directory.
 
-## 2. 与 install.sh RCE（#1）的区别
+Because `file.save()` happens before tar extraction, malformed archives still produce the file write.
 
-| | install.sh RCE（#1） | 本漏洞 |
+## Difference from the install.sh RCE
+
+| | install.sh RCE | This Finding |
 |---|---|---|
-| 触发条件 | tar 是合法 gzip 且含 install.sh | 文件名含 tar.gz 子串 + 任意内容 |
-| 效果 | 执行 /tmp/uploads/install.sh | 写任意「含 tar.gz」路径 |
-| tar 失败时 | 无执行 | 文件仍已写盘 |
+| Requirement | Valid archive containing `install.sh` | Filename contains `tar.gz` and arbitrary content |
+| Effect | Execute uploaded install script | Write constrained arbitrary file |
+| If extraction fails | No script execution | File has already been written |
 
-## 3. 攻击链（受 tar.gz 约束的写原语）
+## Security Consequences
 
-```
-攻击者（同 WiFi）
-   │ POST /upload，filename=<含 tar.gz 的绝对/穿越路径>
-   ▼
-file.save() → 写任意「含 tar.gz」路径（galileo 权限）
-   ▼
-┌─ 覆盖 /home/galileo/123.tar.gz（230MB 固件升级包）→ 供应链/升级注入
-├─ 覆盖 /home/galileo/galileo-robot-hal.tar.gz 等已分发 tar 包
-├─ 写任意目录下的 *.tar.gz（含 /tmp/uploads/，配合 #1 若内容合法 gzip 则触发 install.sh）
-└─ 批量写大文件 → 磁盘耗尽 DoS
-```
+- Replace firmware/distribution tar packages.
+- Place attacker-controlled tar artifacts in writable directories.
+- Fill disk space with large files.
+- Compose with a consumer that later processes a writable tar artifact.
 
-## 4. PoC（adb 桥接版见 exploit.py）
+## Constraint
 
-```bash
-python exploit.py --target /home/galileo/123.tar.gz --content "PWNED"        # 覆盖固件包
-python exploit.py --target ../../../../tmp/pwn.tar.gz --content "PWNED"      # 穿越写法
-# 验证：GET /download_log 或 /list_logs_in_dir 回读，或 /get_robot_env 穿越读确认内容
-```
+The destination name must contain `tar.gz`, so the primitive cannot directly overwrite arbitrary filenames that lack that substring. This is why the report keeps the finding at High absent an additional privileged consumer.
 
-## 5. 影响范围
+## Recommendations
 
-- 未授权写任意「含 tar.gz」路径（独立写原语，不依赖 tar 解压成功）；
-- 覆盖固件/分发 tar 包 → 供应链注入；
-- 磁盘填充 DoS。
+1. Sanitize and basename filenames.
+2. Enforce exact extension matching.
+3. Reject absolute/traversed paths.
+4. Verify archive format before committing it to disk.
 
-## 6. 约束与定级说明（重要）
+## Evidence
 
-外部审计标 **Critical**，理由是"任意文件写原语"。但 `allowed_file()` 的**子串匹配同时构成约束**：
-目标路径**必须含 `tar.gz` 子串**，因此**不能直接写** `~/.ssh/authorized_keys`、
-`service_launcher.sh`、`check_and_fix_multicast.sh`、`*.so` 等不含 tar.gz 的提权目标——
-这些直接提权链不成立。可写目标被限制在「*.tar.gz 命名的路径」内，故实际定级为 **High**。
-（若能找到某个含 tar.gz 且被 root/sudo 消费的路径，则可升级回 Critical。）
-
-## 7. 修复建议
-
-1. `secure_filename()` + 丢弃绝对路径与 `..` 段；
-2. `allowed_file` 改后缀精确匹配 `endswith('.tar.gz')`；
-3. `save` 与 `tar` 之间校验文件确为合法 gzip。
-
-## 8. 证据
-
-- `evidence/AUD-web-upload-filename-path-traversal.md`：外部审计原文（本地验证 PASSED）
-- 我方反汇编：`analysis/webmgr_extract/custom_dis.txt` file_utils 段
+- `evidence/AUD-web-upload-filename-path-traversal.md`
+- `analysis/webmgr_extract/custom_dis.txt`
