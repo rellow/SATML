@@ -14,7 +14,7 @@ related_ai_sessions:
 
 ## 1. Summary
 
-KVS offer 栈溢出.The code path and root cause are confirmed, but an unambiguous physical-device closed loop has not yet been completed.
+KVS offer stack overflow. The code path and root cause are confirmed, but an unambiguous physical-device closed loop has not yet been completed.
 
 ## 2. Affected Products and Versions
 
@@ -39,11 +39,11 @@ Attacker-controlled lengths or indices are not validated against the destination
 3. Collect only non-destructive evidence such as status codes, process restarts, a minimal file marker, or `id`.
 4. Immediately perform cleanup and verify that services and configuration have been restored.
 
-`refuted`项目的“攻击过程”仅指原假设的验证过程，不表示存在可利用攻击路径.
+For `refuted` items, the attack procedure describes validation of the original hypothesis only; it does not imply that an exploitable path exists.
 
 ## 7. Impact
 
-可造成high权限服务崩溃；在满足内存布局等条件时可能进一步形成控制流劫持.
+Can crash a high-privilege service; under suitable memory-layout conditions it may further enable control-flow hijacking.
 
 ## 8. Reproduction
 
@@ -69,5 +69,5 @@ See `证据/材料清单.md` for the evidence index. Source material: `AUD-kvsme
 
 ## 12. Disclosure Record
 
-- 当前披露状态：internal research.
+- Current disclosure status: internal research.
 - Before external disclosure, re-review the evidence, reproducibility, and vendor-coordination status according to `SECURITY.md`.
