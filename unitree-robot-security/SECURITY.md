@@ -1,20 +1,20 @@
-# 安全与保密规则
+# Security and Confidentiality Rules
 
-## 授权边界
+## Authorization Boundary
 
-本仓库仅用于已获授权的宇树 GO2/R1 安全研究。不得将复现工具用于未授权设备、账户、云资源或网络。
+This repository is only for authorized Unitree GO2/R1 security research. Reproduction tools must not be used against unauthorized devices, accounts, cloud resources, or networks.
 
-## 禁止提交
+## Do Not Commit
 
-- 完整固件、UPK、ZIP、TAR、完整解包树、APK、模型和大型二进制；
-- 有效密码、Token、Cookie、Authorization、私钥、签名密钥、云凭据、完整设备 SN 和账户编号；
-- 未脱敏日志、抓包、个人信息、Claude 配置、环境快照、缓存和登录状态；
-- 不必要的大段第三方专有源代码。
+- Complete firmware images, UPK/ZIP/TAR archives, complete extracted filesystem trees, APKs, models, or large binaries;
+- Valid passwords, tokens, cookies, Authorization headers, private keys, signing keys, cloud credentials, full device serial numbers, or account identifiers;
+- Unsanitized logs, packet captures, personal information, Claude configuration, environment snapshots, caches, or login state;
+- Unnecessary large excerpts of third-party proprietary source code.
 
-## 提交流程
+## Commit Workflow
 
-所有原始材料必须先在仓库外生成脱敏副本；二次凭据扫描通过后才能复制进仓库。Git 历史一旦出现未脱敏值即视为发布门禁失败，必须停止推送并重新建立干净历史。
+All raw materials must first be sanitized outside the repository. They may be copied into the repository only after a second credential scan passes. If an unsanitized value ever enters Git history, treat it as a release-gate failure: stop pushing and rebuild a clean history.
 
-## 漏洞披露
+## Vulnerability Disclosure
 
-当前默认披露状态为“内部研究”。任何外部披露需确认影响版本、验证证据、清理结果、厂商协调计划和最小化 PoC。
+The default disclosure state is **internal research**. Before any external disclosure, confirm affected versions, validation evidence, cleanup results, the vendor-coordination plan, and a minimized proof of concept.
