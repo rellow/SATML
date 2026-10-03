@@ -1,130 +1,112 @@
 ---
-编号: UBH-014
-验证状态: 候选
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: executecmd-蓝牙技能system执行
+ID: UBH-014
+validation_status: candidate
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: executecmd-蓝牙技能system执行
 ---
-# UBH-014 V3 · ExecuteCmd 蓝牙(BT)节点 → `system()` 命令执行
+# UBH-014 V3 · ExecuteCmd Bluetooth Skill to `system()` — Candidate
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **严重** — 技能目录 `/etc/walker/skills/` 宿主可写 → 写技能 = root 命令执行 \|
-- - 组合：攻击者（含局域网已有 RCE 者）写一个技能文件 → 触发 ExecuteCmd → root 执行任意命令
-- - 即使无 RCE 前置，BLE 广播/配网攻击也可能直达该接口
+An earlier static report described a Bluetooth skill mechanism in which a writable skill file could feed a command to `system()`. Live re-verification on the current `walker-s2/system:ws2_vision-v0.40.1` image did **not** find the expected `/etc/walker/skills` directory or the `ExecuteCmd` implementation string. The finding is therefore retained only as a **candidate/version-dependent lead**, not a confirmed vulnerability on the tested image.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 组件 \| vision 板蓝牙控制节点（容器 `walker-system.ae_bt_master`） \|
-- \| 复验 \| ⚠️ **现场未复现**：当前镜像 `walker-s2/system:ws2_vision-v0.40.1` 上，宿主与 ae_bt_master 容器内**均无 `/etc/walker/skills` 目录、无 `ExecuteCmd` 字符串**。子代理报告基于静态分析，可能对应其他固件版本 → **降级为待验证** \|
-- > 该发现**未能现场确认**，按反误报纪律标记为"静态报告、待新固件/其他代码路径验证"。
-- > `ae_bt_master` 实际运行的是 tbox JSON-RPC 服务 `ae_master`（与 cc_api 同框架），
-- ## 复现要点（实验环境）
+- Component originally attributed to the vision-board Bluetooth-control container `walker-system.ae_bt_master`.
+- Current live image: `walker-s2/system:ws2_vision-v0.40.1`.
+- On that image, neither the host nor relevant containers contained the expected skill directory or `ExecuteCmd` string.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`候选`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`candidate`. Live re-verification failed to reproduce the earlier static mechanism.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+Any follow-up must first establish that the relevant firmware version actually contains the skill-execution code path and that the Bluetooth control surface can reach it.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # V3 · ExecuteCmd 蓝牙(BT)节点 → `system()` 命令执行
-- \| 能力 \| `ExecuteCmd` — 对技能文件中的命令直接 `system()` 执行 \|
-- 蓝牙控制节点提供 `ExecuteCmd`：读取技能文件并把其中命令交给 `system()`。
-- - 蓝牙控制面（手机 APP / BLE 连接）**无认证触发**
+The original hypothesis was that a Bluetooth-controlled skill mechanism read commands from a host-writable skill directory and passed them to `system()`. That mechanism was not found on the current tested firmware.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+No live exploit procedure is claimed for the current image. The retained script performs search and evidence collection only.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 组件 \| vision 板蓝牙控制节点（容器 `walker-system.ae_bt_master`） \|
-- \| 危害 \| **严重** — 技能目录 `/etc/walker/skills/` 宿主可写 → 写技能 = root 命令执行 \|
-- 蓝牙控制节点提供 `ExecuteCmd`：读取技能文件并把其中命令交给 `system()`。
-- - 蓝牙控制面（手机 APP / BLE 连接）**无认证触发**
-- - 组合：攻击者（含局域网已有 RCE 者）写一个技能文件 → 触发 ExecuteCmd → root 执行任意命令
-- ## 红线 / 风险
+If the older/version-specific mechanism exists as originally reported, combining a writable skill definition with remote skill triggering could lead to command execution. This remains unverified on the current firmware.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Do not create or trigger skill payloads unless the code path is first confirmed in an authorized firmware version.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13, including the negative live evidence.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Continue treating skill execution as a privileged operation.
+- Require authenticated, authorized skill installation and invocation.
+- Avoid shell execution of skill-defined content.
+- Preserve the negative/version-specific evidence so the finding is not overstated.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- This item remains a lead pending confirmation on another firmware/code path.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# V3 · ExecuteCmd 蓝牙(BT)节点 → `system()` 命令执行
+# V3 · ExecuteCmd Bluetooth Skill to `system()` — Candidate
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | vision 板蓝牙控制节点（容器 `walker-system.ae_bt_master`） |
-| 能力 | `ExecuteCmd` — 对技能文件中的命令直接 `system()` 执行 |
-| 危害 | **严重** — 技能目录 `/etc/walker/skills/` 宿主可写 → 写技能 = root 命令执行 |
-| 来源 | report_vision_core(1).md (V3) |
-| 复验 | ⚠️ **现场未复现**：当前镜像 `walker-s2/system:ws2_vision-v0.40.1` 上，宿主与 ae_bt_master 容器内**均无 `/etc/walker/skills` 目录、无 `ExecuteCmd` 字符串**。子代理报告基于静态分析，可能对应其他固件版本 → **降级为待验证** |
+| Component | Originally attributed to vision-board Bluetooth control (`walker-system.ae_bt_master`) |
+| Hypothesized Capability | `ExecuteCmd` reads a skill command and passes it to `system()` |
+| Original Impact | Writable skill directory could make skill creation equivalent to privileged command execution |
+| Source | `report_vision_core(1).md` (V3) |
+| Re-verification | ⚠️ **Not reproduced** on `walker-s2/system:ws2_vision-v0.40.1` |
 
-> ⚠️ **重要**：本会话在活体系统上全盘检索（宿主 /opt /etc /usr/local + ae_bt_master /
-> task_manager / control_center 容器）均未找到 `skills` 目录或 `ExecuteCmd` 字符串。
-> 该发现**未能现场确认**，按反误报纪律标记为"静态报告、待新固件/其他代码路径验证"。
-> `ae_bt_master` 实际运行的是 tbox JSON-RPC 服务 `ae_master`（与 cc_api 同框架），
-> 技能执行能力若存在，更可能经 tbox method（如 skill.*）暴露，而非此前的 `/etc/walker/skills/` 路径。
+## Re-Verification Result
 
-## 漏洞原理
-蓝牙控制节点提供 `ExecuteCmd`：读取技能文件并把其中命令交给 `system()`。
-- 技能目录 `/etc/walker/skills/` 为**宿主可写**（bind-mount 进容器）
-- 蓝牙控制面（手机 APP / BLE 连接）**无认证触发**
-- 组合：攻击者（含局域网已有 RCE 者）写一个技能文件 → 触发 ExecuteCmd → root 执行任意命令
-- 即使无 RCE 前置，BLE 广播/配网攻击也可能直达该接口
+A full live search across the host and relevant containers did not find:
 
-## 利用脚本
+- `/etc/walker/skills`;
+- an `ExecuteCmd` string;
+- the reported skill-file execution path.
+
+The running `ae_bt_master` instead appeared to use the tbox JSON-RPC framework, similar to the cc_api interface. If equivalent skill functionality still exists, it may be exposed through a different method family rather than the originally reported filesystem path.
+
+## Original Hypothesis
+
+The earlier static report proposed:
+
+1. a Bluetooth-accessible skill mechanism;
+2. a host-writable skill directory;
+3. skill files containing commands;
+4. direct execution through `system()`.
+
+If all four properties existed together, a malicious skill could become a command-execution primitive. Because the live image did not contain the expected mechanism, the repository does **not** claim that chain for the current firmware.
+
+## Reproduction Script
+
 `scripts/exploit_executecmd.py`
 
-- 默认（安全）：
-  1. 确认 `ae_bt_master` 容器运行态
-  2. 检查 `/etc/walker/skills` 权限（宿主可写?）
-  3. grep 容器内 `ExecuteCmd` / `system(` / 技能关键字证据
-- `--danger`：展示恶意技能 JSON（`{"name":"poc","cmd":"id > /tmp/bt_pwned ..."}`），**不写入/不触发**。
+Safe behavior:
 
-## 用法
-```
-python exploit_executecmd.py            # 运行态 + 权限 + 静态证据
-python exploit_executecmd.py --danger   # 查看恶意技能载荷（不触发）
-```
+1. Confirm the `ae_bt_master` container is running.
+2. Check whether `/etc/walker/skills` exists and inspect permissions.
+3. Search the container for `ExecuteCmd`, `system(`, and skill-related strings.
 
-## 证据输出
-- 容器运行状态
-- 技能目录权限（`stat -c '%A %U:%G'`）
-- `ExecuteCmd` 静态证据
-- `evidence/` 目录留存
+The optional danger mode only displays the hypothetical skill structure and does not write or trigger anything.
 
-## 红线 / 风险
-⚠️ 触发 ExecuteCmd 会真实执行命令且影响蓝牙链路，默认不写技能/不触发。
+## Conclusion
 
-## 复现要点（实验环境）
-```
-echo '{"name":"poc","cmd":"id > /tmp/bt_pwned"}' > /etc/walker/skills/poc.json
-# 经 BLE/手机 APP 触发该技能 → cat /tmp/bt_pwned 验证 root
-```
+This item is retained to document a previously reported/version-dependent code path and the negative live re-verification. Further work should first identify a firmware image containing the original mechanism.
