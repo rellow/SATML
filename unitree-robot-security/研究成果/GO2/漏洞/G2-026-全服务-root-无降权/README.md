@@ -42,7 +42,7 @@ For `refuted` items, the attack procedure describes validation of the original h
 
 ## 7. Impact
 
-成功利用后可在机器人high权限服务上下文medium执行命令，可能导致设备完全失陷.
+Successful exploitation can execute commands in a high-privilege robot service context and may result in complete device compromise.
 
 ## 8. Reproduction
 
