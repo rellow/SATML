@@ -1,116 +1,105 @@
 ---
-编号: UBH-012
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: emb-request_shutdown一字节双板关机
+ID: UBH-012
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: emb-request_shutdown一字节双板关机
 ---
-# UBH-012 S4 · `/emb/request_shutdown` 一字节双板关机
+# UBH-012 S4 · One-Byte Dual-Board Shutdown via `/emb/request_shutdown`
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **严重** — 任意局域网用户发一个字节即可让 **vision+motion 双板关机** \|
+- Impact: **Critical in the source report** — a one-byte request can cause both the vision and motion boards to shut down.
+- The service/topic was observed live, but the destructive shutdown action was deliberately not triggered.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 组件 \| vision 板 `/emb/*` 服务（JS 桥） \|
-- - 无需认证、无需内网 SSH 凭据（服务端持有 root 免密）
-- - 若攻击者配合持久化（如上述 E3/VB2 固件层后门）→ 反复关机 = 物理不可用
-- - topic/服务存在性
-- ## 复现要点（实验环境 + 允许断电）
+- Component: vision-board `/emb/*` service bridge.
+- The shutdown path uses privileged internal SSH from the vision board to the motion board.
+- Recovery after a full shutdown requires manual power-on.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` with live presence/reachability evidence. The destructive effect was not dynamically executed.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must be able to reach the relevant internal service interface. Reproduction must use researcher-owned devices and an authorized environment; destructive shutdown should not be triggered during ordinary verification.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- 详见下方脱敏研究正文和材料清单。
+A high-impact shutdown action is exposed through an unauthenticated service request and is executed using privileged internal credentials held by the service.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The source report records the one-byte trigger structure and downstream shutdown sequence. The retained safe probe verifies service presence and payload structure without sending the destructive request.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 危害 \| **严重** — 任意局域网用户发一个字节即可让 **vision+motion 双板关机** \|
-- ssh <访问令牌_01>.168.11.2  'sleep 3 && shutdown now &'   # motion
-- ssh <访问令牌_01>.168.11.3  'shutdown now'                 # vision 自身
-- - 无需认证、无需内网 SSH 凭据（服务端持有 root 免密）
-- ## 红线 / 风险
+A successful trigger would shut down both vision and motion boards, causing whole-robot unavailability until manual power restoration. In combination with a persistence mechanism, repeated triggering could create sustained physical denial of service.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). The retained probe is intentionally non-destructive.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Require authentication and operation-specific authorization for shutdown services.
+- Restrict shutdown interfaces to a dedicated trusted maintenance domain.
+- Remove passwordless cross-board root SSH where possible.
+- Add rate limiting, audit logging, and negative regression tests for shutdown control paths.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review evidence and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# S4 · `/emb/request_shutdown` 一字节双板关机
+# S4 · One-Byte Dual-Board Shutdown via `/emb/request_shutdown`
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | vision 板 `/emb/*` 服务（JS 桥） |
-| 接口 | `/emb/request_shutdown`，`value = 0xAA` |
-| 危害 | **严重** — 任意局域网用户发一个字节即可让 **vision+motion 双板关机** |
-| 来源 | report_system(1).md (S4) |
-| 复验 | 🟢 topic 常驻（只读探测）；未触发实际关机 |
+| Component | Vision-board `/emb/*` service (JS bridge) |
+| Interface | `/emb/request_shutdown`, `value = 0xAA` |
+| Impact | **Critical in the source report** — one byte can request shutdown of both the vision and motion boards |
+| Source | `report_system(1).md` (S4) |
+| Re-verification | 🟢 Service/topic remained present under read-only probing; actual shutdown was not triggered |
 
-## 漏洞原理
-`/emb/request_shutdown` 收到 `0xAA` 后执行：
-```sh
-ssh <访问令牌_01>.168.11.2  'sleep 3 && shutdown now &'   # motion
-ssh <访问令牌_01>.168.11.3  'shutdown now'                 # vision 自身
-```
-- 无需认证、无需内网 SSH 凭据（服务端持有 root 免密）
-- 一键 DoS：整机断电式关机，恢复需人工上电
-- 若攻击者配合持久化（如上述 E3/VB2 固件层后门）→ 反复关机 = 物理不可用
+## Vulnerability Mechanism
 
-## 利用脚本
+When `/emb/request_shutdown` receives `0xAA`, the implementation invokes privileged shutdown operations for both boards through internal SSH.
+
+- No caller authentication is enforced at the exposed service boundary.
+- The service itself holds privileged internal SSH capability.
+- A successful trigger would shut down the robot and require manual power restoration.
+- If combined with a persistent foothold, repeated triggering could create sustained physical unavailability.
+
+## Reproduction Script
+
 `scripts/exploit_shutdown.py`
 
-- 默认（安全）：探测 topic 存在 + 展示 `data=[0xAA]` 载荷（**不触发**）。
-- `--danger`：展示触发代码路径；**拒绝实际触发**（内置护栏）。
+- Default safe mode: confirms the topic/service exists and displays the `data=[0xAA]` payload without transmitting it.
+- `--danger`: displays the triggering code path, but the script intentionally refuses to send the destructive request.
 
-## 用法
-```
-python exploit_shutdown.py            # 探测 + 载荷展示
-python exploit_shutdown.py --danger   # 查看触发载荷（脚本拒绝真发）
-```
+## Evidence Output
 
-## 证据输出
-- topic/服务存在性
-- 触发载荷结构（一字节 0xAA）
-- 关机执行链（ssh → shutdown now 双板）
-- `evidence/` 目录留存
+- Topic/service presence.
+- One-byte trigger structure.
+- Downstream dual-board shutdown sequence.
+- Evidence retained under `evidence/`.
 
-## 红线 / 风险
-⚠️ **绝不实际触发** —— 关机后机器人整体失联，需人工上电。演示仅展示载荷。
+## Safety Boundary
 
-## 复现要点（实验环境 + 允许断电）
-向 `/emb/request_shutdown` 发送 `{"value": 0xAA}`，数秒后 vision/motion 双板执行
-`shutdown now`，SSH 全部断开、电源灯熄灭。
+⚠️ **Do not trigger the actual shutdown during normal verification.** A successful trigger disconnects the robot and requires physical power restoration.
+
+The source report states that sending `{"value": 0xAA}` to `/emb/request_shutdown` would cause both boards to execute their shutdown paths within seconds; this destructive step was intentionally not executed during the retained validation.
