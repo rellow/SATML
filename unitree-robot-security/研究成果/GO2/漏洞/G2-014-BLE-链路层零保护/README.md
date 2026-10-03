@@ -25,11 +25,11 @@ Unitree GO2 Air; primary research baseline: stock firmware 1.1.15.
 
 ## 4. Attack Preconditions
 
-攻击者需要处于 BLE 近场范围；需要会话材料的步骤已在复现说明medium单独标注.
+The attacker must be within BLE radio range. Steps requiring session material are identified separately in the reproduction documentation.
 
 ## 5. Root Cause
 
-The source material identifies the core security issue as “BLE 链路层零保护”；根因位于输入信任边界、权限分离或安全状态校验不足.
+The source material identifies the core security issue as a lack of BLE link-layer protection; the root cause lies in inadequate input trust-boundary enforcement, privilege separation, or security-state validation.
 
 ## 6. Attack Procedure
 
