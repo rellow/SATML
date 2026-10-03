@@ -30,7 +30,7 @@ The attacker must be able to reach the network, protocol, or service entry point
 
 ## 5. Root Cause
 
-文件名、路径或目标目录缺少规范化与允许列表校验，使攻击者输入进入high权限文件操作.
+Filenames, paths, or target directories are not adequately canonicalized or allowlisted, allowing attacker-controlled input to reach privileged file operations.
 
 ## 6. Attack Procedure
 
