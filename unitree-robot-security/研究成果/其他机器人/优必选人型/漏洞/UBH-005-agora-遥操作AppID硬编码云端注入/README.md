@@ -1,111 +1,105 @@
 ---
-编号: UBH-005
-验证状态: 静态确认
-严重程度: 中
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: agora-遥操作AppID硬编码云端注入
+ID: UBH-005
+validation_status: statically confirmed
+severity: medium
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: agora-遥操作AppID硬编码云端注入
 ---
-# UBH-005 E6 · Agora RTM 遥操作硬编码 AppID → 云端注入
+# UBH-005 E6 · Hard-Coded Agora RTM AppID Enables Cloud-Side Teleoperation Injection
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **高** — 能加入该频道者可直接注入遥操作指令到 `/quest_vr/*` `/pico_vr/*` `/mc/wbc/motion_d` \|
+- Impact: **High in the source report** — a party able to join the relevant Agora RTM channel could inject teleoperation data into robot motion topics.
+- The hard-coded identifiers were confirmed in the running binary; no live connection to the external Agora cloud was made.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 组件 \| motion 板 `rtm_receiver`（Agora RTM 云端遥操作接收） \|
-- 影响：局域网外的云端攻击面 —— 只要拿到 AppID（已硬编码在固件）即可远程驱动运动，
+- Component: motion-board `rtm_receiver`, which receives cloud teleoperation data through Agora RTM.
+- This creates a cloud-facing attack surface outside the local network if the channel can be joined without an independent secret.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` with binary-level evidence. No live external-cloud injection was performed.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The source report assumes the attacker can obtain the hard-coded Agora identifiers from firmware and that the project/channel does not require an additional effective token. External-cloud interaction was intentionally excluded from routine verification.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- `/mc/wbc/motion_d` 与手套 topic，**无 MAC / 无签名校验**
+The teleoperation receiver embeds cloud connection identifiers in firmware and the inbound dispatch path does not apply an independent MAC/signature check before translating received data into motion-related topics.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained safe script extracts and confirms the embedded identifiers locally. It does not connect to Agora or transmit motion data.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 危害 \| **高** — 能加入该频道者可直接注入遥操作指令到 `/quest_vr/*` `/pico_vr/*` `/mc/wbc/motion_d` \|
-- 影响：局域网外的云端攻击面 —— 只要拿到 AppID（已硬编码在固件）即可远程驱动运动，
-- ## 红线 / 风险
+If the channel is joinable under the recovered identifiers without an additional effective credential, injected teleoperation messages could reach motion-control topics from outside the local network.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). The retained probe is local and non-invasive.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Remove product-wide hard-coded cloud identifiers from firmware where they confer access.
+- Require per-session or per-device authenticated tokens for teleoperation channels.
+- Authenticate and integrity-protect teleoperation payloads independently of transport membership.
+- Add allowlists and safety checks before cloud-originated data reaches motion topics.
+- Audit and rotate any exposed Agora project credentials.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review cloud identifiers, evidence, and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# E6 · Agora RTM 遥操作硬编码 AppID → 云端注入
+# E6 · Hard-Coded Agora RTM AppID Enables Cloud-Side Teleoperation Injection
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | motion 板 `rtm_receiver`（Agora RTM 云端遥操作接收） |
-| 硬编码凭据 | `AppID <云凭据_01>` · channel `walker28` · userid `654321` |
-| 危害 | **高** — 能加入该频道者可直接注入遥操作指令到 `/quest_vr/*` `/pico_vr/*` `/mc/wbc/motion_d` |
-| 来源 | report_motion.md (E6) |
-| 复验 | 🟢 三串均在运行二进制中确认，无 token 字符串 |
+| Component | Motion-board `rtm_receiver` (Agora RTM cloud teleoperation receiver) |
+| Hard-Coded Material | AppID `<云凭据_01>`, channel `walker28`, userid `654321` |
+| Impact | **High in the source report** — a client able to join the channel could inject teleoperation data toward `/quest_vr/*`, `/pico_vr/*`, `/mc/wbc/motion_d`, and glove-related topics |
+| Source | `report_motion.md` (E6) |
+| Re-verification | 🟢 All three strings were confirmed in the runtime binary; no token string was found |
 
-## 漏洞原理
-机器人通过 Agora RTM 订阅云端遥操作（手柄 / Quest VR / Pico VR）数据。AppID、频道、接收
-userid 全部硬编码于 `rtm_receiver` 二进制：
-- 二进制内 **无 token 字符串** → 项目很可能为 AppID-only 模式
-- 任何能 join `channel walker28` 的客户端即可向机器人注入遥操作消息
-- 入站 handler `MessageDispatcher::dispatch` 直接反序列化 → `/quest_vr/*` `/pico_vr/*`
-  `/mc/wbc/motion_d` 与手套 topic，**无 MAC / 无签名校验**
+## Vulnerability Mechanism
 
-影响：局域网外的云端攻击面 —— 只要拿到 AppID（已硬编码在固件）即可远程驱动运动，
-完全绕过局域网防护。
+The robot uses Agora RTM to receive teleoperation data for controller, Quest VR, and Pico VR workflows. The AppID, channel name, and receiver userid are embedded in `rtm_receiver`.
 
-## 利用脚本
+- No token string was found in the binary, suggesting the project may rely on AppID-only access.
+- The inbound `MessageDispatcher::dispatch` path deserializes received messages and publishes them toward motion-related topics.
+- The source report found no independent MAC or signature validation in that inbound payload path.
+
+This creates a potential cloud-side motion-control surface outside the LAN if an unauthorized client can join the channel with the embedded identifiers.
+
+## Reproduction Script
+
 `scripts/exploit_agora.py`
 
-- 默认（安全）：从运行中的 `rtm_receiver` 二进制提取三串硬编码凭据并逐一确认。
-- `--danger`：展示"加入频道→注入遥操作"的代码框架（**不连 Agora 云**）。
+- Default safe mode extracts and confirms the three embedded identifiers from the local `rtm_receiver` binary.
+- `--danger` only displays a code skeleton for the potential channel-join/injection flow; it does **not** connect to Agora.
 
-## 用法
-```
-python exploit_agora.py            # 提取凭据证据
-python exploit_agora.py --danger   # 查看注入代码框架（不执行）
-```
+## Evidence Output
 
-## 证据输出
-- AppID / channel / userid 三串逐一命中（`[EVIDENCE]` 行）
-- 注入路径说明
-- `evidence/` 目录留存
+- Local confirmation of AppID, channel, and userid strings.
+- Documentation of the inbound dispatch path.
+- Evidence retained under `evidence/`.
 
-## 红线 / 风险
-⚠️ 加入 Agora 云频道属外部云交互 + 会真实驱动运动，默认绝不执行。演示仅本地展示凭据与代码框架。
+## Safety Boundary
 
-## 复现要点（需授权 + 吊起）
-用官方 Agora RTM SDK，以同一 AppID `login` 后 `join_channel("walker28")`，
-向频道发送伪造遥操作 payload，观察机器人 `/quest_vr/*` 消费其内容。
+⚠️ Joining the production Agora channel would involve external cloud interaction and could drive physical motion. The retained verification therefore stops at local credential/path confirmation.
+
+The source report describes a full authorized test as joining the configured channel with the vendor SDK and observing whether a test payload reaches the relevant motion topics on a safely suspended robot; that external action was not performed in the retained validation.
