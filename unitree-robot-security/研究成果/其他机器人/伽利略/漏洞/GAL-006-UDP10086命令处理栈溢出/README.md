@@ -1,173 +1,124 @@
 ---
-编号: GAL-006
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 伽利略
-源候选目录: UDP10086命令处理栈溢出-1
+ID: GAL-006
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: Galileo
+source_candidate_directory: UDP10086命令处理栈溢出-1
 ---
-# GAL-006 伽利略（Galileo）机器人 UDP 10086 命令处理函数栈溢出 漏洞报告
+# GAL-006 Galileo UDP 10086 Command-Handler Stack Overflow
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 漏洞类型 \| 远程栈缓冲区溢出（内存破坏；当前现实影响=未授权远程崩溃监控主进程） \|
-- \| 权限 \| 任意可达 UDP 10086 的主机（未授权） \|
-- ## 1. 漏洞概述
-- （RobotStatus@0x6C77C 只回 169 字节堆/全局数据）。**RCE 需要独立的泄露原语**。
-- ## 2. 我方独立复核证据（与外部审计结论一致）
+Several unauthenticated UDP 10086 command handlers pass an attacker-controlled payload length, allowed up to 0x400 bytes, directly to `memcpy` into 4-byte or 16-byte stack locals. The source and independent disassembly confirm stack corruption. In the current evidence, the practical result is an unauthenticated remote crash of the monitor/control process because stack-canary checks fire before a useful return-address overwrite can be exploited. RCE would require an additional information-leak/bypass primitive.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 目标设备 \| 伽利略（Galileo）GRQ05W（固件 galileo-inter 1.0.44） \|
-- \| 漏洞组件 \| `libNetworkSdk.so`（monitor_manager 常驻加载） \|
-- \| 授权边界 \| 仅对自有设备、隔离环境进行 \|
+- Target: Galileo GRQ05W, firmware `galileo-inter 1.0.44`.
+- Component: `libNetworkSdk.so`, loaded by the persistent monitor manager.
+- Attack surface: any host able to send UDP packets to port 10086.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` through independent disassembly and external-audit cross-validation. The report does not claim a demonstrated RCE.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker only requires network reachability to UDP 10086. Live crash testing should be done only on a safely stopped/recoverable research robot.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- memcpy(SP+0x34, payload, len)   ← len 可达 1024 → 越界 1020 字节
-- 帧 0xA0；dest @ SP+0x48；canary @ SP+0x98 → 越界 1008 字节
-- 无认证、无来源过滤——单个 UDP 包即触发 `__stack_chk_fail` 使
-- python exploit.py probe --len 5             # 最小越界(仅毁金丝雀)
+The dispatcher validates only a generic maximum payload length and forwards that length unchanged to handlers whose local destination buffers are much smaller. Those handlers then use `memcpy(dst, payload, len)`.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+A packet selecting one of the affected commands and a payload longer than the handler's local variable corrupts the stack. The retained proof is bounded to crash-level validation and does not attempt control-flow hijacking.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 漏洞类型 \| 远程栈缓冲区溢出（内存破坏；当前现实影响=未授权远程崩溃监控主进程） \|
-- `orrt_monitor_manager_main`（机器人监管控制主进程）崩溃。
-- ③ 调用链 ProcessData 亦带金丝雀；④ 本 socket 无栈泄露通道
-- （RobotStatus@0x6C77C 只回 169 字节堆/全局数据）。**RCE 需要独立的泄露原语**。
-- 受影响 cmd: 0x31010C01(SetControlMode) 0x31010500(SetPolicyMode)
-- ## 5. 影响范围
+- Remote unauthenticated crash/restart of the robot monitor/control process.
+- Repeatable denial of service.
+- Memory-corruption primitive that may become more severe if combined with an independent disclosure or mitigation bypass.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Keep live tests to the minimum required to demonstrate process failure and recovery.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Enforce per-command exact payload lengths before dispatch.
+- Replace attacker-sized copies with fixed-size/checked copies.
+- Authenticate/source-restrict the control protocol.
+- Preserve stack canaries/PIE and add fuzzing for all command handlers.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# 伽利略（Galileo）机器人 UDP 10086 命令处理函数栈溢出 漏洞报告
+# Galileo UDP 10086 Command-Handler Stack Overflow
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 目标设备 | 伽利略（Galileo）GRQ05W（固件 galileo-inter 1.0.44） |
-| 漏洞组件 | `libNetworkSdk.so`（monitor_manager 常驻加载） |
-| 漏洞类型 | 远程栈缓冲区溢出（内存破坏；当前现实影响=未授权远程崩溃监控主进程） |
-| 定位 | `RobotSetControlMode@0x6C338` / `RobotSetPolicyMode@0x6C184` / `RobotTurnLeftAndRight@0x6BDF4` / `RobotTransLeftAndRight@0x6BD74` / `RobotTransBackAndForth@0x6BCF4`；分发于 `ProcessData@0x6A39C` |
-| 权限 | 任意可达 UDP 10086 的主机（未授权） |
-| 复现日期 | 2026-08-29（发现方：外部审计包 `AUD-udp-cmdhandler-stack-smash`；本报告经我方用自有反汇编独立复核确认） |
-| 授权边界 | 仅对自有设备、隔离环境进行 |
+| Target | Galileo GRQ05W (`galileo-inter 1.0.44`) |
+| Component | `libNetworkSdk.so` |
+| Type | Remote stack-buffer overflow |
+| Current Demonstrated Impact | Unauthenticated remote crash of `orrt_monitor_manager_main` |
+| Attack Surface | UDP 10086 |
+| Validation | Independent disassembly + external-audit cross-check |
 
----
+## Vulnerability Overview
 
-## 1. 漏洞概述
+The top-level `ProcessData` logic accepts payload lengths up to `0x400` and passes the original length to command handlers. Several handlers use that value as the size for a stack `memcpy` even though their destinations are only 4 or 16 bytes.
 
-`ProcessData` 对 type=1 包只校验 `1 ≤ length ≤ 0x400`，随后 `handler(payload, length)`
-把 **攻击者长度原样传给命令处理函数**。五个处理函数把该长度直接用作 `memcpy` 尺寸，
-拷入 **4 字节或 16 字节的栈局部变量**：
+Representative layouts from the analysis:
 
-```
-RobotTransBackAndForth/TurnLeftAndRight/TransLeftAndRight（4 字节目标）:
-  帧 0x40；dest @ SP+0x34；canary @ SP+0x38（dest+4 即金丝雀）
-  memcpy(SP+0x34, payload, len)   ← len 可达 1024 → 越界 1020 字节
+- translation/turn handlers: 4-byte destination immediately adjacent to the stack canary;
+- control/policy mode handlers: 16-byte destination with a larger but still bounded gap to the canary.
 
-RobotSetControlMode/RobotSetPolicyMode（16 字节目标）:
-  帧 0xA0；dest @ SP+0x48；canary @ SP+0x98 → 越界 1008 字节
-```
+A packet containing a sufficiently long payload therefore overwrites the canary and triggers `__stack_chk_fail`, terminating the monitor/control process.
 
-无认证、无来源过滤——单个 UDP 包即触发 `__stack_chk_fail` 使
-`orrt_monitor_manager_main`（机器人监管控制主进程）崩溃。
+## Honest Exploitability Boundary
 
-**诚实边界（外部复审+我方认同）**：当前为"崩溃级"原语——
-① 处理函数自身 epilogue 的金丝雀检查先于被覆盖返回地址生效；
-② 该函数保存的 X30 位于 dest 下方（向上拷贝覆盖不到）；
-③ 调用链 ProcessData 亦带金丝雀；④ 本 socket 无栈泄露通道
-（RobotStatus@0x6C77C 只回 169 字节堆/全局数据）。**RCE 需要独立的泄露原语**。
+The report explicitly limits the current claim to crash-level memory corruption:
 
-## 2. 我方独立复核证据（与外部审计结论一致）
+- the handler's own canary check runs before a useful overwritten return address can be used;
+- saved return state is not directly overwritten in the simplest affected layouts;
+- the caller also uses stack-protection;
+- the same socket does not provide a known stack-memory disclosure.
 
-自有反汇编（`analysis/` 下 walk_dis 输出，RobotTransBackAndForth @0x6BCF4）：
+Thus **RCE is not demonstrated** and would require an additional primitive.
 
-```
-0x6bcf4: stp x29,x30,[sp,#-0x40]!        ; 帧 0x40
-0x6bd0c: ldr x0,[x0]; 0x6bd14: str x1,[sp,#0x38]   ; 金丝雀存 SP+0x38
-0x6bd1c: str wzr,[sp,#0x34]              ; dest=0（4字节）@ SP+0x34
-0x6bd20: ldr w1,[sp,#0x24]               ; len ← 处理函数第2参（攻击者 u32）
-0x6bd24: add x0,sp,#0x34                 ; dst
-0x6bd2c: ldr x1,[sp,#0x28]               ; src ← payload
-0x6bd30: bl  memcpy                      ; memcpy(SP+0x34, payload, len≤0x400)
-```
+## Evidence
 
-ProcessData 长度边界（自有 processdata_dis.txt）：
+Independent disassembly confirms:
 
-```
-0x6a560: cmp w0,#0x400; b.hi 拒绝       ; 仅上限 0x400
-0x6a574: b.ne 0x6a608                    ; length≠0 进入数据体路径
-0x6a788-0x6a7ac: type==1 → handler(payload, length)
-```
+- generic `0x400` maximum in the dispatcher;
+- forwarding of `payload,length` to the selected handler;
+- destination addresses/sizes and `memcpy` call sites.
 
-## 3. PoC 包格式
+## Safe Reproduction
 
-```
-u32 0x55AA55AA | u32 cmd | u32 length=0x400 | u32 type=1 | 1024字节payload
-受影响 cmd: 0x31010C01(SetControlMode) 0x31010500(SetPolicyMode)
-           0x31010145(Turn) 0x31010141(TransLR) 0x31010140(TransBF)
-观察: 机器人日志出现 __stack_chk_fail / monitor_manager 进程消失并自动重启
-```
+The retained script can construct affected command frames with a minimally oversized or maximum-sized payload and observe process termination/restart on an owned, stationary device.
 
-## 4. 复现（adb 桥接版见 exploit.py）
+## Recommendations
 
-```bash
-python exploit.py smash --cmd turn          # 1024字节'A' → 崩溃 Turn 处理器
-python exploit.py smash --cmd takeover16    # 16字节目标变体(SetControlMode)
-python exploit.py probe --len 5             # 最小越界(仅毁金丝雀)
-```
+1. Validate exact expected length per command.
+2. Use fixed-size copies or safe structured decoding.
+3. Authenticate the UDP control protocol.
+4. Fuzz all command handlers and retain compiler hardening.
 
-## 5. 影响范围
+## Evidence Files
 
-- 未授权远程崩溃机器人监管控制主进程（运动控制/监控/网络遥控全部随之下线）——
-  可反复触发 = 持续 DoS（物理安全：运行中机器人失控停车逻辑依赖该进程）；
-- 内存破坏原语等级：RCE-grade（获得任意泄露通道后即可升级代码执行）。
-
-## 6. 修复建议
-
-1. 处理函数对长度做与目标尺寸一致的上限检查（这些命令参数均 ≤16 字节，直接
-   `if (len != 4/16) return;`）；
-2. `ProcessData` 分发前按命令白名单校验 length 合法范围；
-3. 换 `memcpy` 为定长拷贝或 `std::span`；配合栈金丝雀之外的 CFU/PIE 缓解。
-
-## 7. 证据
-
-- `evidence/processdata_dis.txt`：分发与长度检查（自有反汇编全文副本）
-- `evidence/handler_disassembly.txt`：五个处理函数反汇编（含栈布局标注）
-- 外部审计原文：`AUD-udp-cmdhandler-stack-smash.md`（含其复审记录）
+- `evidence/processdata_dis.txt`
+- `evidence/handler_disassembly.txt`
+- external audit `AUD-udp-cmdhandler-stack-smash.md`
