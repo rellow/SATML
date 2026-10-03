@@ -21,7 +21,7 @@ Unitree GO2 Air; primary research baseline: stock firmware 1.1.15.
 
 ## 3. Validation Status
 
-`refuted`.Migration decision: retain the refutation showing that six tested variants were rejected.
+`refuted`. Migration decision: retain the refutation showing that six tested variants were rejected.
 
 ## 4. Attack Preconditions
 
@@ -29,12 +29,12 @@ The attacker must be able to reach the network, protocol, or service entry point
 
 ## 5. Root Cause
 
-文件名、路径或目标目录缺少规范化与允许列表校验，使攻击者输入进入high权限文件操作.
+Filenames, paths, or target directories are not adequately canonicalized or allowlisted, allowing attacker-controlled input to reach privileged file operations.
 
 ## 6. Attack Procedure
 
 1. Reach the entry point described by the report and satisfy the stated preconditions.
-2. 使用脱敏复现清单medium的最小探针触发目标代码路径；
+2. Use the minimal probe from the sanitized reproduction manifest to exercise the target code path.
 3. Collect only non-destructive evidence such as status codes, process restarts, a minimal file marker, or `id`.
 4. Immediately perform cleanup and verify that services and configuration have been restored.
 
@@ -50,13 +50,13 @@ The `复现/材料清单.md` file records screened scripts or their external sto
 
 ## 9. Supporting Evidence
 
-See `证据/材料清单.md` for the evidence index. Source material: 未动态闭环 21、后续真机复核.Large or sensitive evidence that is not committed is recorded centrally in `材料清单/未提交材料.csv` at the repository root.
+See `证据/材料清单.md` for the evidence index. Source material: the item labeled `未动态闭环 21` and subsequent physical-device re-verification.Large or sensitive evidence that is not committed is recorded centrally in `材料清单/未提交材料.csv` at the repository root.
 
 ## 10. Recommendations
 
 - Enforce strong authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point.
 - Apply allowlists and strict validation to lengths, indices, paths, state transitions, and target resources.
-- 将high风险服务降权并建立进程、文件系统和网络边界；
+- Drop privileges for high-risk services and establish process, filesystem, and network boundaries.
 - Remove hard-coded or shared credentials, rotate exposed material, and add security-audit logging.
 - Add automated regression tests and negative test cases for this vulnerability.
 
