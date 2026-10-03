@@ -1,129 +1,110 @@
 ---
-编号: UBH-015
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: jetson-启动链测试签名固件可重签
+ID: UBH-015
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: jetson-启动链测试签名固件可重签
 ---
-# UBH-015 VB2 · Jetson 启动链测试签名固件可重签（持久化后门）
+# UBH-015 VB2 · Jetson Boot Chain Uses Test-Signed Firmware Without a Fused Production Root
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **严重** — 自生成新键即可重签封装并替换启动固件 → **链上持久化，软件补丁无法清除** \|
-- - 后果：攻击者（含局域网 RCE）替换启动固件/嵌入 u-boot 层后门 → 每次上电先执行攻击者代码，
+The analyzed Jetson T234 boot-chain artifacts use an EDK II test certificate chain, while the inspected boot configuration did not show a fused production PKC/SBK root constraining the accepted signer. The report therefore identifies a persistent boot-chain integrity risk if an attacker first obtains the authority needed to replace boot firmware.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- # VB2 · Jetson 启动链测试签名固件可重签（持久化后门）
-- \| 组件 \| vision 板 Jetson T234 启动链（TegraBoot 封装 + BCT） \|
-- \| 危害 \| **严重** — 自生成新键即可重签封装并替换启动固件 → **链上持久化，软件补丁无法清除** \|
-- \| 复验 \| 🔒 静态（固件副本在 vision `/opt/ota_package/t23x/`） \|
-- - BCT 无 PKC（公钥加密）哈希 / SBK → 熔丝层无任何根密钥约束，不校验重启时引导固件的签名者。
-- - 后果：攻击者（含局域网 RCE）替换启动固件/嵌入 u-boot 层后门 → 每次上电先执行攻击者代码，
+- Component: vision-board Jetson T234 boot chain (TegraBoot capsule plus BCT).
+- Firmware copies were inspected under `/opt/ota_package/t23x/`.
+- No device flashing or capsule replacement was performed.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed`. This finding concerns the observed trust configuration; boot acceptance of an attacker-repacked image was not dynamically tested.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+An attacker must already have sufficient local write/update authority to replace boot-chain artifacts. Offline verification should use copies only; live reflashing is outside routine testing.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- `cms -verify` 失败原因为"证书已过期"
+Production boot integrity appears to rely on an expired/public test-signing chain without an independently fused production root that binds the accepted signer.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained script extracts the capsule's PKCS#7 material, inspects the certificate chain with OpenSSL, and checks BCT PKC/SBK configuration. It does not re-sign or flash firmware.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 签名 \| EDK II **测试** PKI：TestCert / TestSub / TestRoot，有效期 **2017-04-10 → 2018-04-10**（已过期） \|
-- \| 危害 \| **严重** — 自生成新键即可重签封装并替换启动固件 → **链上持久化，软件补丁无法清除** \|
-- 3. 本地 openssl 验证：`pkcs7 -print_certs` 展示 TestCert/TestSub/TestRoot 过期链 +
-- ## 红线 / 风险
+If the platform accepts replacement boot firmware signed under a non-production trust configuration, an attacker with prior write authority could establish persistence below the Linux OS, surviving ordinary software reinstallation.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Verification is read-only/offline.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Fuse a production PKC/SBK root unique to the intended trust domain.
+- Remove public/test signing chains from production boot acceptance.
+- Require authenticated update authorization before boot artifacts can be replaced.
+- Add secure-boot regression checks and key-rotation/revocation procedures.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# VB2 · Jetson 启动链测试签名固件可重签（持久化后门）
+# VB2 · Jetson Boot Chain Uses Test-Signed Firmware Without a Fused Production Root
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | vision 板 Jetson T234 启动链（TegraBoot 封装 + BCT） |
-| 签名 | EDK II **测试** PKI：TestCert / TestSub / TestRoot，有效期 **2017-04-10 → 2018-04-10**（已过期） |
-| BCT | 无 PKC/SBK 填充（熔丝无根密钥约束） |
-| 危害 | **严重** — 自生成新键即可重签封装并替换启动固件 → **链上持久化，软件补丁无法清除** |
-| 来源 | report_voice_boot(1).md (VB2) |
-| 复验 | 🔒 静态（固件副本在 vision `/opt/ota_package/t23x/`） |
+| Component | Vision-board Jetson T234 boot chain (TegraBoot capsule + BCT) |
+| Signature | EDK II **test** PKI: TestCert / TestSub / TestRoot, validity 2017-04-10 to 2018-04-10 |
+| BCT | No populated production PKC/SBK root observed in the analyzed copy |
+| Impact | **Critical in the source report** — weak boot-root binding could allow persistent replacement of boot firmware after a prior compromise |
+| Source | `report_voice_boot(1).md` (VB2) |
+| Re-verification | 🔒 Static analysis of firmware copies stored under `/opt/ota_package/t23x/` |
 
-## 漏洞原理
-- TegraBoot 封装（如 `TEGRA_BL_3701_000.Cap`）由 EDK II 出厂**测试**证书签名；
-  测试链 2018-04-10 已过期，且私钥本身属公开测试样张 → **签名可被攻击者自行重做**。
-- PKCS7 位于封装偏移 `0x68`，长 `0xAED` 字节。
-- BCT 无 PKC（公钥加密）哈希 / SBK → 熔丝层无任何根密钥约束，不校验重启时引导固件的签名者。
-- 后果：攻击者（含局域网 RCE）替换启动固件/嵌入 u-boot 层后门 → 每次上电先执行攻击者代码，
-  重刷 Linux 镜像也无法恢复（后门在链的更底层）。
+## Vulnerability Mechanism
 
-## 利用脚本
+The analyzed TegraBoot capsule is signed with an EDK II test certificate chain. The report found that:
+
+- the certificate chain is an expired test chain rather than a production device/vendor chain;
+- the test-signing material is not intended to function as a production secret;
+- the inspected BCT did not show a production PKC hash/SBK binding that would independently restrict the accepted signer.
+
+This creates a potential persistence risk if another vulnerability first grants authority to replace boot firmware. Such persistence would execute before Linux and could survive ordinary OS reflashing.
+
+## Reproduction Script
+
 `scripts/exploit_boot_sig.py`
 
-- 默认（安全）：
-  1. 定位 `TEGRA_BL*.Cap` 封装
-  2. 提取偏移 0x68 的 PKCS7（0xAED 字节）
-  3. 本地 openssl 验证：`pkcs7 -print_certs` 展示 TestCert/TestSub/TestRoot 过期链 +
-     `cms -verify` 失败原因为"证书已过期"
-  4. 检查 BCT PKC/SBK（无）
-- 不修改设备任何文件；不重签（仅证明可重签）。
+Safe default behavior:
 
-## 用法
-```
-python exploit_boot_sig.py            # 提取 + 本地验证
-python exploit_boot_sig.py --no-capsule   # 用本地已缓存副本
-```
-需要本地 `openssl`（本机 3.5.6 已验证可用）。
+1. Locate a `TEGRA_BL*.Cap` copy.
+2. Extract the embedded PKCS#7 signature material.
+3. Use local OpenSSL inspection to display the TestCert/TestSub/TestRoot chain and its expired validity period.
+4. Inspect BCT PKC/SBK fields.
 
-## 证据输出
-- 封装路径 + PKCS7 长度/首 32B hex
-- `evidence/tegrabl_pkcs7.der`（供审计）
-- 证书链信息（Test 前缀 + 过期日期）
-- `cms -verify` 过期失败输出
-- BCT PKC 检查
-- `evidence/` 目录留存
+The script does not modify, re-sign, or flash anything.
 
-## 红线 / 风险
-⚠️ 本脚本只读提取 + 本地验证，**不烧录、不重签**。重签演示需离线做（生成新密钥对 → 替换
-PKCS7 → 重打包），可在实验室沙箱进行，不接触机器人。
+## Evidence Output
 
-## 复现要点（离线沙箱）
-```
-# 提取封装签名
-dd if=TEGRA_BL_3701_000.Cap bs=1 skip=$((0x68)) count=$((0xAED)) of=cap.pkcs7.der
-# 自签新测试链并替换 → 重封装
-# 上电观察引导是否接受（BCT 无 PKC → 接受）
-```
+- Capsule location and signature block metadata.
+- Extracted `evidence/tegrabl_pkcs7.der`.
+- Certificate-chain and validity information.
+- BCT root-key configuration evidence.
+- Supporting logs under `evidence/`.
+
+## Safety Boundary
+
+⚠️ The retained workflow is read-only. Any signer-replacement experiment should be performed only on an offline laboratory image or dedicated recoverable hardware, not on the research robot.
