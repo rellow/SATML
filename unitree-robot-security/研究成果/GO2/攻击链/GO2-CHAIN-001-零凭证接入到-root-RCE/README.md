@@ -1,16 +1,16 @@
-# GO2-CHAIN-001 零凭证接入到 root RCE
+# GO2-CHAIN-001 Zero-Credential Access to Root RCE
 
-- 状态：已动态闭环
-- 攻击前提：仅限授权设备与隔离网络；各阶段前提以漏洞 README 为准。
-- 最终影响：攻击链完成后可达到题名所述影响。
+- Status: dynamically closed-loop
+- Attack preconditions: authorized devices and isolated networks only; stage-specific preconditions are defined in each vulnerability README.
+- Final impact: completing the chain reaches the impact stated in the title.
 
-## 阶段
+## Stages
 
 1. [G2-001](../../漏洞/G2-001-零凭证未授权控制/README.md)
 2. [G2-002](../../漏洞/G2-002-编程执行器到-root-RCE/README.md)
 
-## 清理过程
+## Cleanup
 
-动态复现后必须删除临时文件、恢复配置、停止测试监听器，并再次验证相关服务处于预期状态。
+After dynamic reproduction, remove temporary files, restore configuration, stop test listeners, and verify again that the relevant services are in their expected state.
 
-本目录只串联漏洞，不复制任何漏洞报告、PoC 或证据。
+This directory only links vulnerabilities into a chain; it does not duplicate vulnerability reports, PoCs, or evidence.
