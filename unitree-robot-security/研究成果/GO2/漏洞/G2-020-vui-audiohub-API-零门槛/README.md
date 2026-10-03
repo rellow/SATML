@@ -29,7 +29,7 @@ The attacker must be able to reach the network, protocol, or service entry point
 
 ## 5. Root Cause
 
-服务在处理high影响请求前缺少有效的身份认证、授权或来源绑定.
+The service lacks effective authentication, authorization, or source binding before processing high-impact requests.
 
 ## 6. Attack Procedure
 
