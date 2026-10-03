@@ -43,7 +43,7 @@ For `refuted` items, the attack procedure describes validation of the original h
 
 ## 7. Impact
 
-可造成high权限服务崩溃；在满足内存布局等条件时可能进一步形成控制流劫持.
+Can crash a high-privilege service; under suitable memory-layout conditions it may further enable control-flow hijacking.
 
 ## 8. Reproduction
 
