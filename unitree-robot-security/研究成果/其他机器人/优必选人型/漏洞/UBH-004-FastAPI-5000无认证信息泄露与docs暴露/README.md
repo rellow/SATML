@@ -1,136 +1,119 @@
 ---
-编号: UBH-004
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: FastAPI-5000无认证信息泄露与docs暴露-1
+ID: UBH-004
+validation_status: dynamically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: FastAPI-5000无认证信息泄露与docs暴露-1
 ---
-# UBH-004 t800-web-backend FastAPI :5000 无认证信息泄露 + Swagger 暴露 + 磁盘填满 DoS
+# UBH-004 t800-web-backend FastAPI :5000 Unauthenticated Information Exposure, Swagger Exposure, and Disk-Exhaustion DoS
 
-## 1. 一句话结论
+## 1. Summary
 
-- ## 1. 执行摘要
-- 未认证可反复调用耗尽磁盘（DoS）。该服务同时承载 export/sysupload/rename-folder 等读写原语，
-- \| `GET /api/sn` \| `{"code":200,...,"sn":"<其他机器人设备_01>"}`（未认证泄露 SN） \|
-- \| `POST /api/export` \| 路径穿越任意文件读（见 export 目录） \|
-- - 未认证反复调用 → 磁盘耗尽 → 服务/系统不可用；
+The FastAPI service on port 5000 exposes its API surface without authentication, including Swagger/OpenAPI documentation and information endpoints such as `/api/sn`. The export endpoint also leaves generated archives behind, allowing repeated unauthenticated requests to consume disk space. Higher-impact read/write primitives hosted by the same service are tracked separately.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- > 版本：2026-08-29 · 方法：实机验证（当日）+ 源码审计
-- 未认证可反复调用耗尽磁盘（DoS）。该服务同时承载 export/sysupload/rename-folder 等读写原语，
-- - 未认证反复调用 → 磁盘耗尽 → 服务/系统不可用；
-- - 组件：`t800-web-backend` v0.2.9（:5000 FastAPI，Alpine 容器 root）
+- Evidence date: 2026-08-29.
+- Method: live validation plus source review.
+- Component: `t800-web-backend` v0.2.9, FastAPI on port 5000.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`dynamically confirmed`. The documentation and information endpoints were observed live; destructive disk exhaustion was not driven to failure.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must be able to reach port 5000. Verification should avoid repeated export calls that could materially consume storage.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # t800-web-backend FastAPI :5000 无认证信息泄露 + Swagger 暴露 + 磁盘填满 DoS
-- **FastAPI :5000 整个 API 面无认证，暴露 `/docs`（Swagger UI）、`/openapi.json`（完整路由）与
-- 未认证可反复调用耗尽磁盘（DoS）。该服务同时承载 export/sysupload/rename-folder 等读写原语，
-- \| `GET /api/sn` \| `{"code":200,...,"sn":"<其他机器人设备_01>"}`（未认证泄露 SN） \|
-- \| `POST /api/export` \| 路径穿越任意文件读（见 export 目录） \|
-- - 未认证反复调用 → 磁盘耗尽 → 服务/系统不可用；
+The service lacks a global authentication/authorization layer and exposes administrative/debug documentation plus data-bearing endpoints directly to unauthenticated network callers. Exported archive files are not automatically cleaned up.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained evidence uses read-only GET requests and bounded export behavior to confirm exposure. It does not intentionally fill the disk.
 
-## 7. 实际影响
+## 7. Impact
 
-- # t800-web-backend FastAPI :5000 无认证信息泄露 + Swagger 暴露 + 磁盘填满 DoS
-- 多个信息泄露端点（`/api/sn` 等）。此外 `/api/export` 每次成功导出在 `/tmp/exports/` 永久留档，
-- 严重度定级：**中危（Medium）**——信息泄露 + 磁盘 DoS；其承载的读写原语已单独定级 Critical。
-- \| `GET /api/sn` \| `{"code":200,...,"sn":"<其他机器人设备_01>"}`（未认证泄露 SN） \|
-- ## 4. 受影响范围
-- - 组件：`t800-web-backend` v0.2.9（:5000 FastAPI，Alpine 容器 root）
+- Serial-number and route metadata disclosure.
+- Complete Swagger/OpenAPI enumeration of the attack surface.
+- Potential storage exhaustion through repeated archive creation.
+- The same service also hosts separate arbitrary-read/write primitives documented in their own reports.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Keep export testing bounded and clean up any temporary archives.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Add global authentication and authorization middleware.
+- Disable `/docs` and `/openapi.json` in production or restrict them to administrators.
+- Clean up export artifacts immediately or stream them without persistent temporary files.
+- Add rate limits and storage quotas.
+- Audit all routes exposed by the service.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# t800-web-backend FastAPI :5000 无认证信息泄露 + Swagger 暴露 + 磁盘填满 DoS
+# t800-web-backend FastAPI :5000 Unauthenticated Information Exposure, Swagger Exposure, and Disk-Exhaustion DoS
 
-> 版本：2026-08-29 · 方法：实机验证（当日）+ 源码审计
+> Version: 2026-08-29 · Method: live validation + source audit
 
----
+## 1. Executive Summary
 
-## 1. 执行摘要
+The FastAPI service on port 5000 exposes its entire API surface without authentication. Live testing confirmed:
 
-**FastAPI :5000 整个 API 面无认证，暴露 `/docs`（Swagger UI）、`/openapi.json`（完整路由）与
-多个信息泄露端点（`/api/sn` 等）。此外 `/api/export` 每次成功导出在 `/tmp/exports/` 永久留档，
-未认证可反复调用耗尽磁盘（DoS）。该服务同时承载 export/sysupload/rename-folder 等读写原语，
-是本设备攻击面的中枢。**
+- `GET /api/sn` returned the robot serial number.
+- `GET /docs` returned the Swagger UI.
+- `GET /openapi.json` exposed the complete route schema.
+- `POST /api/export` reaches the separately documented file-export primitive.
 
-严重度定级：**中危（Medium）**——信息泄露 + 磁盘 DoS；其承载的读写原语已单独定级 Critical。
+The export endpoint stores generated `exported_maps.tar.gz` files under `/tmp/exports/tmp*/` and does not remove them automatically. Repeated unauthenticated export calls can therefore consume disk space.
 
----
+The source report rates this specific information-exposure/DoS issue **Medium**, while separate read/write primitives hosted by the same service are individually rated higher.
 
-## 2. 实机验证（2026-08-29）
+## 2. Live Validation (2026-08-29)
 
-| 端点 | 结果 |
+| Endpoint | Result |
 |---|---|
-| `GET /api/sn` | `{"code":200,...,"sn":"<其他机器人设备_01>"}`（未认证泄露 SN） |
-| `GET /docs` | HTTP 200（Swagger UI 暴露） |
-| `GET /openapi.json` | 15 条路由（见下） |
-| `POST /api/export` | 路径穿越任意文件读（见 export 目录） |
+| `GET /api/sn` | HTTP success and robot SN returned |
+| `GET /docs` | HTTP 200, Swagger UI exposed |
+| `GET /openapi.json` | Fifteen routes exposed |
+| `POST /api/export` | Separate path-traversal read primitive documented elsewhere |
 
-**openapi.json 实际路由（15 条，含报告未列的 expression 系列）**：
-`/api/sysupload`、`/api/export`、`/list-files`、`/api/ping`、`/api/sn`、`/static/{filename}`、
-`/api/rename-folder`、`/api/faultconfig/update`、`/api/expressions`、`/api/expression/upload`、
-`/api/expression/delete`、`/api/expression/update`、`/api/expression/check/{key}`、`/api/expression/{key}`
+The live OpenAPI schema included `/api/sysupload`, `/api/export`, `/list-files`, `/api/ping`, `/api/sn`, `/static/{filename}`, `/api/rename-folder`, `/api/faultconfig/update`, and the expression-management route family.
 
-> 报告此前记录 12 条路由；实机为 15 条（新增 expression 系列），详见源码审计 lead。
+## 3. Disk-Exhaustion Behavior
 
-## 3. 磁盘填满 DoS
+Every successful export creates a persistent temporary archive under `/tmp/exports/`. Because the endpoint is unauthenticated and the archives are not cleaned up, repeated requests can consume available storage.
 
-- `/api/export` 每次成功导出在 `/tmp/exports/tmp*/` 生成 `exported_maps.tar.gz`，**不清理**；
-- 未认证反复调用 → 磁盘耗尽 → 服务/系统不可用；
-- 研究过程已清理一次（`find /tmp/exports -name exported_maps.tar.gz -delete`）。
+The research process performed cleanup after bounded validation rather than attempting to exhaust the disk.
 
-## 4. 受影响范围
+## 4. Affected Scope
 
-- 组件：`t800-web-backend` v0.2.9（:5000 FastAPI，Alpine 容器 root）
-- 入口：任意 `:5000` 路由，无认证
+- Component: `t800-web-backend` v0.2.9.
+- Entry point: port 5000.
+- Authentication: none observed at the service level.
 
-## 5. 修复建议
+## 5. Recommendations
 
-1. 全局增加认证/鉴权中间件（修复 auth 缺失根因）；
-2. 生产关闭 `/docs`、`/openapi.json`；
-3. `/api/export` 完成后清理留档，或流式返回不落盘。
+1. Add global authentication/authorization.
+2. Disable or restrict Swagger/OpenAPI in production.
+3. Stream export results or delete temporary files immediately after transfer.
+4. Add quotas/rate limiting and monitoring for abnormal export volume.
 
-## 6. 证据文件
+## 6. Evidence
 
-| 文件 | 内容 |
-|---|---|
-| `evidence/fastapi_live.txt` | /api/sn、/docs、/openapi 路由、SRS banner 实机响应 |
+`evidence/fastapi_live.txt` records live responses for `/api/sn`, `/docs`, and `/openapi.json`.

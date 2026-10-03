@@ -1,139 +1,123 @@
 ---
-编号: UBH-008
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: api-rename-folder任意目录移动
+ID: UBH-008
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: api-rename-folder任意目录移动
 ---
-# UBH-008 t800-web-backend `/api/rename-folder` 任意目录移动
+# UBH-008 t800-web-backend `/api/rename-folder` Arbitrary Directory Move
 
-## 1. 一句话结论
+## 1. Summary
 
-- # t800-web-backend `/api/rename-folder` 任意目录移动
-- ## 1. 执行摘要
-- **FastAPI :5000 `/api/rename-folder` 三个参数全部用户可控（含 `target_dir` 可为任意路径与 `..`），
-- 未认证即实现任意目录移动。可将设备任意目录搬移到任意位置，造成配置破坏、服务拒绝、
-- 严重度定级：**高危（High）**——未认证任意目录移动，具备破坏/辅助提权能力。
+The unauthenticated FastAPI endpoint `/api/rename-folder` accepts fully caller-controlled source, destination, and target-directory parameters. Source review shows no canonicalization or containment check, so the primitive can move directories outside the intended application root.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- > 版本：2026-08-29 · 方法：源码审计（报告级证据）；未实机重复（移动操作为破坏性，风险>收益）
-- 未认证即实现任意目录移动。可将设备任意目录搬移到任意位置，造成配置破坏、服务拒绝、
-- → 配置丢失 / 服务异常 / 或将文件移动到敏感加载路径
-- - 组件：`t800-web-backend` v0.2.9（:5000 FastAPI）
+- Component: `t800-web-backend` v0.2.9 on port 5000.
+- Evidence date: 2026-08-29.
+- The destructive move operation was not repeated on the live robot because the risk outweighed the value of re-validation.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` from source-level evidence. No destructive live move was performed.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must be able to reach the unauthenticated backend endpoint. Any dynamic proof should be limited to a disposable temporary directory and restore the moved object afterward.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- 未认证即实现任意目录移动。可将设备任意目录搬移到任意位置，造成配置破坏、服务拒绝、
-- 严重度定级：**高危（High）**——未认证任意目录移动，具备破坏/辅助提权能力。
-- ## 2. 漏洞根因
-- 未认证 POST :5000/api/rename-folder
-- - 入口：`POST /api/rename-folder`，未认证
+All three path-related parameters are user controlled, including `target_dir`, and the implementation calls `shutil.move` without resolving and constraining the source/destination to an allowed root.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The source report demonstrates the vulnerable path composition. The migration does not add a destructive live proof.
 
-## 7. 实际影响
+## 7. Impact
 
-- > 版本：2026-08-29 · 方法：源码审计（报告级证据）；未实机重复（移动操作为破坏性，风险>收益）
-- 严重度定级：**高危（High）**——未认证任意目录移动，具备破坏/辅助提权能力。
-- shutil.move(join(MAP_ROOT, src), join(target_dir, dst))
-- ## 4. 受影响范围
+An unauthenticated caller can potentially move application or bind-mounted host directories, causing configuration loss, denial of service, or moving writable content into a security-sensitive load path.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). A safe proof should use only a temporary test directory.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Require authentication and authorization for the endpoint.
+- Resolve `src`, `dst`, and `target_dir` with realpath/canonicalization and require all final paths to remain beneath approved roots.
+- Reject absolute paths, traversal components, and symlink escapes.
+- Add regression tests for path traversal and cross-mount moves.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# t800-web-backend `/api/rename-folder` 任意目录移动
+# t800-web-backend `/api/rename-folder` Arbitrary Directory Move
 
-> 版本：2026-08-29 · 方法：源码审计（报告级证据）；未实机重复（移动操作为破坏性，风险>收益）
+> Version: 2026-08-29 · Method: source audit (report-level evidence); destructive movement was not repeated on the live robot.
 
----
+## 1. Executive Summary
 
-## 1. 执行摘要
+The FastAPI endpoint `/api/rename-folder` accepts three caller-controlled path parameters. In particular, `target_dir` may be an arbitrary or traversed path. The implementation performs an unauthenticated directory move without a containment check.
 
-**FastAPI :5000 `/api/rename-folder` 三个参数全部用户可控（含 `target_dir` 可为任意路径与 `..`），
-未认证即实现任意目录移动。可将设备任意目录搬移到任意位置，造成配置破坏、服务拒绝、
-或配合其他原语（移动可写文件到可执行/可加载路径）提权。**
+Potential consequences include configuration loss, service disruption, and moving attacker-writable content into a sensitive load/execution location.
 
-严重度定级：**高危（High）**——未认证任意目录移动，具备破坏/辅助提权能力。
+Severity in the source report: **High**.
 
----
+## 2. Root Cause
 
-## 2. 漏洞根因
-
-代码：`t800-web-backend` `controller/upload.py`。
+Source: `t800-web-backend/controller/upload.py`.
 
 ```python
-# 伪代码还原
+# reconstructed pseudocode
 @app.post("/api/rename-folder")
-def rename_folder(src: str = ..., dst: str = ..., target_dir: str = ...):
-    # 三参数全可控，含 ..；无 realpath/前缀校验
+def rename_folder(src: str, dst: str, target_dir: str):
+    # no realpath/prefix containment check
     shutil.move(join(MAP_ROOT, src), join(target_dir, dst))
 ```
 
-- `target_dir`：任意路径（绝对路径 / `..`）；
-- `src`/`dst`：拼接后无校验。
+- `target_dir` can select an arbitrary destination.
+- `src` and `dst` are concatenated without a final-path containment check.
 
-## 3. 攻击链
+## 3. Security Path
 
 ```
-未认证 POST :5000/api/rename-folder
-  src=/etc/walker/x  target_dir=/tmp  dst=y      → 移动任意目录
-  → 配置丢失 / 服务异常 / 或将文件移动到敏感加载路径
+Unauthenticated POST /api/rename-folder
+        ↓
+caller-controlled source and destination
+        ↓
+directory moved outside expected application root
+        ↓
+configuration loss / service failure / sensitive-load-path placement
 ```
 
-## 4. 受影响范围
+## 4. Affected Scope
 
-- 组件：`t800-web-backend` v0.2.9（:5000 FastAPI）
-- 入口：`POST /api/rename-folder`，未认证
-- 覆盖：容器内任意目录（bind-mount 下含宿主 `/etc/walker` 等）
+- Component: `t800-web-backend` v0.2.9 (FastAPI :5000).
+- Entry point: unauthenticated `POST /api/rename-folder`.
+- Container bind mounts may expose host paths such as `/etc/walker`.
 
-## 5. 复现
+## 5. Reproduction
 
-报告级：三参数全可控已确认。实机最小验证需移动到无害临时目录（如
-`target_dir=/tmp/<rand>`），移动后自行还原；整理阶段未执行。
+The report confirms the three caller-controlled parameters from source. A minimal live test should move only a disposable directory under `/tmp/<random>` and restore it immediately. That destructive operation was not executed during repository migration.
 
-## 6. 修复建议
+## 6. Recommendations
 
-1. 增加认证；
-2. `src`/`target_dir` realpath 归一化并限定于允许根目录内；
-3. 禁止 `..` 与绝对路径。
+1. Add authentication.
+2. Canonicalize all paths and constrain them to explicit allowed roots.
+3. Reject absolute paths and `..` traversal.
 
-## 7. 证据文件
+## 7. Evidence
 
-| 文件 | 内容 |
-|---|---|
-| 报告 `WALKER_S2_PWN.md` | rename-folder 三参数全可控确认、建议修复 |
+The source report `WALKER_S2_PWN.md` contains the path-control analysis and remediation notes.

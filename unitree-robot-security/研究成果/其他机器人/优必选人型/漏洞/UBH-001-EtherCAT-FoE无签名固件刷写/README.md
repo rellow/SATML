@@ -1,124 +1,114 @@
 ---
-编号: UBH-001
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: EtherCAT-FoE无签名固件刷写
+ID: UBH-001
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: EtherCAT-FoE无签名固件刷写
 ---
-# UBH-001 E3 · EtherCAT FoE 无签名固件刷写（闪存）
+# UBH-001 E3 · Unsigned Firmware Flashing over EtherCAT FoE
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **严重** — 无签名固件包可刷入伺服闪存，密码固定/弱 \|
-- FoE（EtherCAT 文件传输协议）`download_file` 服务允许向任意从站写入固件镜像：
-- 攻击者写入恶意固件 → **伺服层持久化后门**（上电即驻留），比上位机 RCE 更底层，
+- Impact: **Critical in the source report** — the EtherCAT File-over-EtherCAT update service can transfer raw firmware images to servo slaves without a cryptographic signature check.
+- The service and firmware artifacts were confirmed; destructive flashing was intentionally not performed.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- # E3 · EtherCAT FoE 无签名固件刷写（闪存）
-- \| 组件 \| motion 板 EtherCAT 主站 + 伺服（Ecat2Can 桥接） \|
-- \| 服务 \| ROS2 service `/ecat/slave/download_file`（FoE = File over EtherCAT） \|
-- \| 危害 \| **严重** — 无签名固件包可刷入伺服闪存，密码固定/弱 \|
-- \| 复验 \| 🟢 常驻服务；运行态图内可见（当前机器人 STANDBY） \|
-- FoE（EtherCAT 文件传输协议）`download_file` 服务允许向任意从站写入固件镜像：
+- Component: motion-board EtherCAT master plus servo devices through the Ecat2Can bridge.
+- Service: ROS 2 `/ecat/slave/download_file`.
+- The running service was visible in the robot's ROS graph while the robot was in STANDBY.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` with live service-presence evidence. No servo firmware was flashed during verification.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must reach the motion-board ROS/EtherCAT service boundary. Verification must use researcher-owned hardware and should not flash servo firmware without a repair and recovery environment.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # E3 · EtherCAT FoE 无签名固件刷写（闪存）
-- \| 危害 \| **严重** — 无签名固件包可刷入伺服闪存，密码固定/弱 \|
-- 从站无签名校验即接受镜像并写入闪存（断线/重启后由伺服 EEPROM 引导恶意固件）。
+The FoE update path accepts raw firmware images without a cryptographic signature, and the source analysis identified weak/fixed password behavior rather than a strong per-device authorization mechanism.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained probe confirms the service registration, locates a factory firmware image for format evidence, and records the password candidates. It can construct a request but does not transmit it.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 危害 \| **严重** — 无签名固件包可刷入伺服闪存，密码固定/弱 \|
-- ## 红线 / 风险
+A malicious firmware image accepted by a servo would persist in device flash and execute below the host operating system. This creates a lower-level persistence and physical-safety risk, including potential joint-controller failure.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). No firmware flashing is performed by the committed safe probe.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Require cryptographic signatures on all servo firmware images.
+- Use per-device or securely provisioned update authorization rather than fixed/weak passwords.
+- Enforce anti-rollback.
+- Restrict update services to authenticated maintenance contexts.
+- Add recovery-safe negative tests for modified/unsigned firmware.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review firmware material, evidence, and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# E3 · EtherCAT FoE 无签名固件刷写（闪存）
+# E3 · Unsigned Firmware Flashing over EtherCAT FoE
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | motion 板 EtherCAT 主站 + 伺服（Ecat2Can 桥接） |
-| 服务 | ROS2 service `/ecat/slave/download_file`（FoE = File over EtherCAT） |
-| 危害 | **严重** — 无签名固件包可刷入伺服闪存，密码固定/弱 |
-| 来源 | report_motion.md (E3) |
-| 复验 | 🟢 常驻服务；运行态图内可见（当前机器人 STANDBY） |
+| Component | Motion-board EtherCAT master + servo devices (Ecat2Can bridge) |
+| Service | ROS 2 `/ecat/slave/download_file` (FoE = File over EtherCAT) |
+| Impact | **Critical in the source report** — raw firmware can be delivered to servo flash without a cryptographic signature |
+| Source | `report_motion.md` (E3) |
+| Re-verification | 🟢 Service present in the runtime graph; robot was in STANDBY |
 
-## 漏洞原理
-FoE（EtherCAT 文件传输协议）`download_file` 服务允许向任意从站写入固件镜像：
-- **无数字签名校验**（镜像即原始二进制）
-- 密码枚举：空密码 / `0x120332`（硬编码于桥接层）
-- 目标 `slave_addr 0x4651`（伺服）
+## Vulnerability Mechanism
 
-攻击者写入恶意固件 → **伺服层持久化后门**（上电即驻留），比上位机 RCE 更底层，
-且可烧死关节（维修级破坏）。
+The FoE `download_file` service transfers a firmware image to a selected EtherCAT slave.
 
-## 利用脚本
+The source report found:
+
+- no digital-signature verification on the raw image;
+- password candidates consisting of an empty value or a fixed bridge-layer value;
+- a servo slave address identified in the analyzed configuration.
+
+If an unauthorized image is accepted, malicious code can persist in servo flash and run on power-up. This is lower in the stack than host RCE and can create repair-level joint-controller damage.
+
+## Reproduction Script
+
 `scripts/exploit_foe_flash.py`
 
-- 默认（安全）：
-  1. 在容器内检索出厂固件 `app.bin`（原始 STM32 镜像）作证据
-  2. 探测 `/ecat/slave/download_file` 服务在 ROS 图中的注册情况
-  3. 展示 FoE 密码线索（空/0x120332）
-- `--danger`：构造刷写请求（slave_addr、pass_word、固件路径），**不发送**。
+Safe default behavior:
 
-## 用法
-```
-python exploit_foe_flash.py            # 证据采集
-python exploit_foe_flash.py --danger   # 查看刷写载荷（不发送）
-```
+1. Locate a factory `app.bin` firmware image in the local container for format evidence.
+2. Confirm that `/ecat/slave/download_file` is registered.
+3. Display the FoE password evidence.
 
-## 证据输出
-- 出厂固件文件哈希 + 原始 MCU 头（如 0x2000 栈指针/复位向量）
-- 服务注册探测结果
-- 密码候选证据
-- `evidence/` 目录留存
+The danger mode only constructs a request and does not send it.
 
-## 红线 / 风险
-⚠️ 刷写伺服固件为**不可逆破坏性操作**，默认绝不发送。执行需机器人断电+维修环境。
+## Evidence Output
 
-## 复现要点
-机器人运行态：
-```
-ros2 service call /ecat/slave/download_file ecat_task_msgs/srv/DownloadFile \
-  "{slave_addr: 0x4651, pass_word: 0x120332, file_path: '/tmp/mal.bin'}"
-```
-从站无签名校验即接受镜像并写入闪存（断线/重启后由伺服 EEPROM 引导恶意固件）。
+- Factory firmware hash and MCU header evidence.
+- Service-registration result.
+- Password-candidate provenance.
+- Supporting material under `evidence/`.
+
+## Safety Boundary
+
+⚠️ Servo firmware flashing is potentially irreversible and can damage joint control. The retained test never sends the update request.
+
+A full authorized validation requires a powered-down/repair-capable environment, a known-good recovery image, and a safe method to restore the servo controller.

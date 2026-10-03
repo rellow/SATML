@@ -1,163 +1,114 @@
 ---
-编号: GAL-016
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 伽利略
-源候选目录: sudo免密提权root-1
+ID: GAL-016
+validation_status: dynamically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: Galileo
+source_candidate_directory: sudo免密提权root-1
 ---
-# GAL-016 伽利略（Galileo）机器人 sudo 免密提权 root 漏洞复现报告
+# GAL-016 Galileo Passwordless sudo Privilege Escalation to Root
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 前置 \| 已获得 galileo 用户命令执行（见 Flask 后台未授权 RCE 漏洞） \|
-- ## 1. 漏洞概述
-- 这构成完整提权链的**最后一环**：攻击者先经 Flask 后台未授权 RCE 获得 galileo 身份命令执行，
-- │  ① Flask /upload 未授权 RCE（见 RCE 漏洞）→ galileo 身份命令执行
-- ② install.sh 内执行 `sudo <任意命令>`
+The ordinary `galileo` account is configured for non-interactive passwordless sudo. Once another vulnerability provides command execution as `galileo`, an attacker can immediately execute commands as root. The source report dynamically confirmed `sudo -n id` returning uid 0 on the researcher-owned robot.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 目标设备 \| 伽利略（Galileo）四足机器人（SSID `C1W-1.0-007`） \|
-- \| 漏洞组件 \| sudoers 配置（galileo 用户免密 sudo） \|
-- \| 授权边界 \| 仅对自有设备、隔离环境进行 \|
-- 再借 sudo 免密**一步提升到 root**，完全接管机器人（读全盘、改固件、植入持久化后门）。
-- - 可读全盘（含 /etc/shadow、其他用户数据、固件源码）；
-- - 可植入持久化后门（systemd 服务、SSH 密钥、crontab）；
+- Target: Galileo research robot running Ubuntu 22.04.
+- Component: sudoers configuration for the `galileo` user.
+- Typical prerequisite: user-level command execution, such as the separately documented Flask management-backend RCE.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`dynamically confirmed`.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must first obtain command execution as `galileo` or another account covered by the same sudo rule. Verification must use benign root commands on owned hardware.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- 详见下方脱敏研究正文和材料清单。
+The `galileo` user is granted broad NOPASSWD sudo authority instead of narrowly scoped, operation-specific privilege.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+After gaining a `galileo` shell, a non-interactive sudo command succeeds without a password and runs as uid 0.
 
-## 7. 实际影响
+## 7. Impact
 
-- # 伽利略（Galileo）机器人 sudo 免密提权 root 漏洞复现报告
-- \| 漏洞类型 \| 权限提升（LPE）：galileo → root \|
-- 密码即可直接以 root（uid=0）身份执行命令。实测输出 `uid=0(root) gid=0(root)
-- groups=0(root),46(plugdev)`。
-- 再借 sudo 免密**一步提升到 root**，完全接管机器人（读全盘、改固件、植入持久化后门）。
-- ③ 以 root(uid=0) 执行任意命令 → 完全接管
+- Immediate local privilege escalation from `galileo` to root.
+- Full filesystem and service authority.
+- Ability to modify firmware/configuration or create persistence.
+- Amplifies every user-level RCE affecting the `galileo` account.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). A safe proof is `sudo -n id`; avoid persistent modifications.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Remove broad NOPASSWD sudo.
+- If sudo is required, allow only narrowly specified commands with constrained arguments.
+- Separate the web/service account from interactive administrative accounts.
+- Audit sudoers and privileged group membership as part of release testing.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# 伽利略（Galileo）机器人 sudo 免密提权 root 漏洞复现报告
+# Galileo Passwordless sudo Privilege Escalation to Root
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 目标设备 | 伽利略（Galileo）四足机器人（SSID `C1W-1.0-007`） |
-| 系统 | Ubuntu 22.04 |
-| 漏洞组件 | sudoers 配置（galileo 用户免密 sudo） |
-| 漏洞类型 | 权限提升（LPE）：galileo → root |
-| 前置 | 已获得 galileo 用户命令执行（见 Flask 后台未授权 RCE 漏洞） |
-| 复现日期 | 2026-08-29 |
-| 授权边界 | 仅对自有设备、隔离环境进行 |
+| Target | Galileo research robot |
+| System | Ubuntu 22.04 |
+| Component | sudoers configuration |
+| Type | Local privilege escalation |
+| Prerequisite | Command execution as `galileo` |
+| Validation | Dynamic |
 
----
+## Vulnerability Overview
 
-## 1. 漏洞概述
-
-机器人上的普通用户 **galileo（uid=1000）被配置为 sudo 免密**：执行 `sudo -n id` 无需输入
-密码即可直接以 root（uid=0）身份执行命令。实测输出 `uid=0(root) gid=0(root)
-groups=0(root),46(plugdev)`。
-
-这构成完整提权链的**最后一环**：攻击者先经 Flask 后台未授权 RCE 获得 galileo 身份命令执行，
-再借 sudo 免密**一步提升到 root**，完全接管机器人（读全盘、改固件、植入持久化后门）。
-
-## 2. 攻击链
+The `galileo` user (uid 1000) can invoke sudo non-interactively without supplying a password. On the owned robot, a benign identity query through sudo returned:
 
 ```
-攻击者（同 WiFi）
-   │  ① Flask /upload 未授权 RCE（见 RCE 漏洞）→ galileo 身份命令执行
-   ▼
-② install.sh 内执行 `sudo <任意命令>`
-   │     sudo -n 免密，无需密码
-   ▼
-③ 以 root(uid=0) 执行任意命令 → 完全接管
+uid=0(root) gid=0(root)
 ```
 
-## 3. 漏洞细节
+This turns any command-execution primitive in the `galileo` account into a root-compromise chain with no additional credential requirement.
 
-### 3.1 免密 sudo 证据
+## Composition with Web RCE
 
-实测（经 Flask /upload 执行 install.sh 写结果，再经 /run_script 回读）：
-
-```bash
-$ sudo -n id
-uid=0(root) gid=0(root) groups=0(root),46(plugdev)
+```
+unauthenticated Flask command execution
+        ↓
+galileo user context
+        ↓
+passwordless sudo
+        ↓
+root
 ```
 
-- `-n` 表示 non-interactive（不提示密码），命令直接成功，说明 sudoers 对该用户配置了 NOPASSWD。
-- 执行用户由 galileo 变为 root，groups 含 root。
+The source package used this transition to validate the privilege boundary; the English translation does not reproduce persistence or sensitive-file modification commands.
 
-### 3.2 与 RCE 的组合
+## Impact
 
-RCE 漏洞的 install.sh 以 galileo 身份执行，其中任何 `sudo <cmd>` 都会以 root 执行，
-即：**未授权 RCE 可直接升级为未授权 root RCE**（一条链，零额外前提）。
+Root authority includes access to system configuration, firmware/application content, privileged services, and persistence mechanisms.
 
-## 4. 复现步骤
+## Safe Reproduction
 
-```bash
-# 前置：已连入机器人 AP，且已确认 Flask /upload 未授权 RCE
+Use only a non-destructive identity check such as `sudo -n id`.
 
-# 1. 验证免密 sudo（经 RCE 执行）
-python3 exploit.py 192.168.2.1 "id"          # sudo id → uid=0(root)
+## Evidence
 
-# 2. 读取 root 才可读的文件
-python3 exploit.py 192.168.2.1 "cat /etc/shadow"
-
-# 3. 完全接管（例：写 SSH authorized_keys 或植入后门）
-python3 exploit.py 192.168.2.1 "echo '...' >> /root/.ssh/authorized_keys"
-```
-
-## 5. 影响范围
-
-- 由 galileo 一步提升到 root，完全控制机器人；
-- 可读全盘（含 /etc/shadow、其他用户数据、固件源码）；
-- 可植入持久化后门（systemd 服务、SSH 密钥、crontab）；
-- 可进一步横向移动（机器人所在网络内其他设备）。
-
-## 6. 修复建议
-
-1. 移除 galileo 用户的 NOPASSWD 配置，或按最小权限原则仅授权必要命令；
-2. 结合修复 Flask /upload 未授权 RCE（消除 galileo 命令执行的入口）；
-3. 定期审计 sudoers 配置。
-
-## 7. 证据
-
-- `evidence/` 目录：提权验证过程的原始响应与文件读取结果
+The associated `evidence/` directory records the privilege-validation response from the owned device.

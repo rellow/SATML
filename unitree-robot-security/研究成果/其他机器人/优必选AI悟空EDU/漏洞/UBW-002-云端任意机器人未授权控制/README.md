@@ -1,347 +1,310 @@
 ---
-编号: UBW-002
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选AI悟空EDU
-源候选目录: 云端任意机器人未授权控制
+ID: UBW-002
+validation_status: dynamically confirmed
+severity: critical
+disclosure_status: internal research
+source_platform: UBTECH AI Wukong EDU
+source_candidate_directory: 云端任意机器人未授权控制
 ---
-# UBW-002 UBTECH 悟空（Alpha Mini）云 IM 链未授权远程控制 — 完整分析与复现手册
+# UBW-002 UBTECH Wukong (Alpha Mini) Cloud IM Chain: Unauthorized Remote Control — Complete Analysis and Reproduction Guide
 
-## 1. 一句话结论
+## 1. Summary
 
-- # UBTECH 悟空（Alpha Mini）云 IM 链未授权远程控制 — 完整分析与复现手册
-- ## 1. 执行摘要
-- **只需一个机器人序列号（SN），无需任何账号、无需与目标处于同一网络，攻击者即可从互联网任意位置对在线悟空机器人执行任意远程命令。** 该结论已在本团队自有设备上完整实机闭环，非理论推演。
-- 严重度定级：**严重（Critical）**——未授权、广域网可达、可规模化、波及儿童用户群体的隐私与物理安全。
-- ## 2. 危害全景
+- # UBTECH Wukong (Alpha Mini) Cloud IM Chain: Unauthorized Remote Control — Complete Analysis and Reproduction Guide
+- ## 1. Executive Summary
+- **A robot serial number (SN) is sufficient to reach the tested cloud-control path: no user account and no shared local network with the target are required. On the researcher-owned device, the chain was dynamically closed end to end rather than inferred only from static analysis.**
+- Severity: **Critical** in the source report because the path is unauthenticated, WAN-reachable, potentially scalable, and affects both privacy and physical safety for a child-oriented product.
+- ## 2. Impact Overview
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- > 版本：2026-07-31 · 环境：SRC 授权测试环境 · 实证设备：自有悟空教育版（SN=<其他机器人设备_01>, fw v1.6.3.919）
-- - **5 条产品线**的固件经同一签名体系公网可下载（其中 3 条含完整系统 OTA）。
-- - **cmd 313/314（OTA 下载并升级）**：命令机器人下载安装升级包。该设备 OTA 验签信任根为 **AOSP 公开测试密钥**（任何人可下载私钥），攻击者可自签恶意固件推送安装，改写 preloader/LK/TEE——**恢复出厂也无法清除的机队级持久化**。
-- `im/getInfo` 是 UBTECH 云为 App/机器人签发腾讯 IM 登录凭据（userSig）的接口，其唯一防护是客户端硬编码的静态密钥 `MD5("IM$SeCrET"+time)`——**任何人可从公开 App/固件中恢复，且服务端不校验时间窗（24 小时前的签名照样放行）、不校验账号存在性、无频率限制**。实测三个 IM 租户（1400032988 / 1400059787 / 1400031700）全部可用伪造凭据登录腾讯 IM 生产环境。这意味着该厂商消费级产品线的 IM 身份体系是**系统性失效**，不是单点漏洞。
-- - **悟空 2 代**：IM 租户伪造登录已实证；固件同构（`persist.mini.sid` + 机器人拿 sid 查绑定），全链适用为强推断；
-- - **AlphaMini 标准版（X100）**：大概率落入默认租户（已实证可伪造登录），系统固件 1.26 GB 已下载待验证；
+- > Version: 2026-07-31 · Environment: SRC-authorized test environment · Validated device: researcher-owned Wukong Education Edition (SN=<其他机器人设备_01>, firmware v1.6.3.919)
+- Firmware for **five product lines** was publicly retrievable through the same signing system; three included complete system OTA packages.
+- The source report identifies high-impact OTA handlers (cmd 313/314) that can instruct the robot to download and install upgrade packages. It further reports that the tested device trusted an **AOSP public test key** for OTA verification, creating a serious persistence risk if maliciously signed firmware could be accepted.
+- `im/getInfo` is the UBTECH cloud endpoint that issues Tencent IM login credentials (`userSig`) to Apps/robots. The source report found that its protection depended on a static client-side secret recoverable from public App/firmware code, while the server did not enforce the expected time window, account existence, or meaningful rate limits.
+- Three IM tenants (1400032988 / 1400059787 / 1400031700) were tested successfully with forged login credentials.
+- **Wukong 2:** forged IM-tenant login was directly validated; because the firmware uses the same `persist.mini.sid` identity structure, application of the complete chain is treated as a strong inference rather than separately closed.
+- **AlphaMini standard edition (X100):** likely falls under the default tenant based on the tested login behavior; the 1.26 GB system firmware had been acquired for follow-up validation.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`dynamically confirmed`. This status reflects the validation boundary of the source report; the migration process does not infer dynamic confirmation from directory names.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+Attack preconditions are defined by the sanitized research body below. Reproduction must use researcher-owned devices, isolated networks, and authorized environments and must not perform write, control, or destructive operations against third-party devices.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- ## 3. 漏洞根因（六环机制）
-- > **服务端不校验时间窗（24h 已验证）——以下请求生成一次可无限重放。**
-- \| 现象 \| 原因与处理 \|
-- 3. **机器人固件（纵深）**：IM 派发前校验发送方绑定关系；高危命令（370/365/316/312–315）二次认证+防重放；OTA 更换公开测试密钥。
+- ## 3. Vulnerability Root Cause: Six-Link Mechanism
+- The source report found that the server did not enforce the expected signature time window, so otherwise valid signed requests could remain replayable.
+- The core failure is an authentication and authorization chain in which client-distributed secrets can mint IM credentials, the IM tenant accepts those credentials, the robot does not validate the sender against its binding relationship, and a large handler surface is exposed behind that identity.
+- Defense-in-depth recommendations in the source report include sender-binding checks before IM dispatch, secondary authentication plus anti-replay for high-risk commands, and replacement of the public OTA test trust root.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The source report's entry points, protocols, and sequencing are preserved in the sanitized research body in Section 13. This directory retains only minimal reproduction material and does not duplicate large raw evidence.
 
-## 7. 实际影响
+## 7. Impact
 
-- # UBTECH 悟空（Alpha Mini）云 IM 链未授权远程控制 — 完整分析与复现手册
-- 严重度定级：**严重（Critical）**——未授权、广域网可达、可规模化、波及儿童用户群体的隐私与物理安全。
-- ## 2. 危害全景
-- ### 2.2 持久化完全控制：从一条消息到 rootkit
-- - **cmd 704–709（RTAV 视频房间）**：让机器人开启实时音视频房间，**cmd 707 远程控制机器人动作**。机器人由此变成攻击者安插在儿童卧室里的遥控摄像头+麦克风。
-- ### 2.4 针对儿童的社工欺诈通道（本产品最特殊的危害）
+- # UBTECH Wukong (Alpha Mini) Cloud IM Chain: Unauthorized Remote Control — Complete Analysis and Reproduction Guide
+- Severity: **Critical** in the source report because the path is unauthenticated, WAN-reachable, potentially scalable, and affects child privacy and physical safety.
+- ## 2. Impact Overview
+- ### 2.2 Persistent Control: From One Message to Long-Lived Compromise
+- The handler table includes code-execution, OTA, debugging, reset, and real-time audio/video functionality; the source report differentiates dynamically validated behavior from code-only evidence.
+- ### 2.4 Social-Engineering Channel Against Children
+- Because the product is designed for children, unauthorized contact-list modification and text-to-speech behavior can create a distinctive social-engineering risk beyond ordinary IoT compromise.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Imported scripts were text-sanitized; original scripts, logs, packet captures, and binaries not imported are recorded in the repository-level material manifest.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13. Source files are represented only by hashes and local storage paths; raw sensitive material is not copied into Git.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Enforce authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point.
+- Apply allowlists to paths, lengths, protocol fields, file types, and state transitions.
+- Remove hard-coded credentials and rotate exposed material.
+- Drop privileges for high-risk services and add audit logging and negative regression tests.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report. If such a record is added later, it will be registered in the [AI session index](../../../../../AI轨迹/会话索引.md).
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review credentials, device identifiers, evidence, and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# UBTECH 悟空（Alpha Mini）云 IM 链未授权远程控制 — 完整分析与复现手册
+# UBTECH Wukong (Alpha Mini) Cloud IM Chain: Unauthorized Remote Control — Complete Analysis and Reproduction Guide
 
-> 版本：2026-07-31 · 环境：SRC 授权测试环境 · 实证设备：自有悟空教育版（SN=<其他机器人设备_01>, fw v1.6.3.919）
-> **边界声明**：全部命令执行仅针对本团队自有机器人；对第三方设备仅做过只读在线状态查询，
-> 未投递任何消息、未伪造其凭据、未读取其数据。本手册仅供防御研究与负责任披露使用。
-
----
-
-## 1. 执行摘要
-
-**只需一个机器人序列号（SN），无需任何账号、无需与目标处于同一网络，攻击者即可从互联网任意位置对在线悟空机器人执行任意远程命令。** 该结论已在本团队自有设备上完整实机闭环，非理论推演。
-
-关键数字：
-
-- **6 个环节**构成的攻击链，全部实机实证；
-- **~110 个**远程命令 handler 零鉴权可达（含恢复出厂、Lua 代码执行、OTA 刷机、视频房间）；
-- **3 个腾讯 IM 租户**被同一把硬编码静态密钥通签（覆盖悟空 1 代教育版、2 代、默认产品线）；
-- **50%** 的 SN 号段密度（抽样 101 个命中 50 台真实设备），全网在线设备可云端枚举；
-- **5 条产品线**的固件经同一签名体系公网可下载（其中 3 条含完整系统 OTA）。
-
-严重度定级：**严重（Critical）**——未授权、广域网可达、可规模化、波及儿童用户群体的隐私与物理安全。
+> Version: 2026-07-31 · Environment: SRC-authorized test environment · Validated device: researcher-owned Wukong Education Edition (SN=<其他机器人设备_01>, firmware v1.6.3.919)
+> **Boundary statement:** all command execution was limited to the research team's own robot. For third-party devices, testing was limited to read-only online-status queries; no messages were delivered, no credentials were forged for those devices, and no data was read from them. This guide is for defensive research and responsible disclosure only.
 
 ---
 
-## 2. 危害全景
+## 1. Executive Summary
 
-### 2.1 规模化破坏：全网设备批量变砖
+**A robot serial number (SN) is sufficient to reach the tested cloud-control path: no user account and no shared local network with the target are required. On the researcher-owned device, the chain was dynamically closed end to end rather than inferred only from static analysis.**
 
-攻击链的每一个前提都是机械可枚举的：SN 格式 `<其他机器人设备_01> + 8 位数字`，经 `im/isOnline` 接口（支持批量 20 个/次，实测三态准确）可低成本扫描出全网在线设备清单。抽样实测：以一台已知设备为中心 ±50 的 101 个候选中命中 **50 台真实设备**（密度约 50%）。
+Key figures reported by the source study:
 
-拿到清单后，对每台设备发送 **cmd 370（恢复出厂）** 或 **cmd 371（清除隐私数据）**，即可在一夜之间将在线设备批量清空解绑。这不是理论场景：命令通道与已实证的 cmd 68/99/108 走同一个零校验派发器，厂商侧没有任何速率限制或来源校验。
+- A **six-link attack chain**, dynamically validated on the owned device.
+- Roughly **110 remote command handlers** reachable behind the same unauthenticated dispatch path, including reset, Lua execution, OTA, and real-time video functionality.
+- **Three Tencent IM tenants** accepted credentials derived from the same hard-coded static secret family, covering the first-generation Wukong Education Edition, Wukong 2, and a default product line.
+- In a bounded sample around a known serial-number range, **50 of 101 candidates** corresponded to real devices according to the cloud online-status endpoint. This sampling result is not presented as a global population estimate.
+- Firmware for **five product lines** was retrievable through the same signing system, including full-system OTA packages for three lines.
 
-### 2.2 持久化完全控制：从一条消息到 rootkit
+Severity: **Critical** in the source report because the path is unauthenticated, WAN-reachable, potentially scalable, and affects both privacy and physical safety for a child-oriented product.
 
-- **cmd 365（DemoRunLuaScript）**：在机器人上执行任意 Lua。同 handler 在局域网通道已被证明可通过 `luajava` 反射调用 `Runtime.exec` 获得 **system 身份 shell**（本工作区局域网攻击面 U-30 已实证）。经广域网 IM 触发同一代码路径，攻击者可在任意受害者机器人上植入持久化后门，机器人沦为家庭/学校内网跳板。
-- **cmd 313/314（OTA 下载并升级）**：命令机器人下载安装升级包。该设备 OTA 验签信任根为 **AOSP 公开测试密钥**（任何人可下载私钥），攻击者可自签恶意固件推送安装，改写 preloader/LK/TEE——**恢复出厂也无法清除的机队级持久化**。
-- **cmd 316（ADB 开关）**：远程开启调试接口。
+---
 
-### 2.3 侵入家庭物理空间：摄像头、麦克风与远程动作
+## 2. Impact Overview
 
-- **cmd 704–709（RTAV 视频房间）**：让机器人开启实时音视频房间，**cmd 707 远程控制机器人动作**。机器人由此变成攻击者安插在儿童卧室里的遥控摄像头+麦克风。
-- **cmd 109（取声网房间凭据）**：已实测零鉴权可达——受害者正在进行视频看护时，攻击者可取走房间频道与凭据，**加入他人正在进行的视频通话**实时窥视。
-- **SetCameraPrivacyHandler**：远程关闭摄像头隐私模式。
+### 2.1 Potential for Scaled Device Disruption
 
-### 2.4 针对儿童的社工欺诈通道（本产品最特殊的危害）
+The source report found that each prerequisite can be mechanically checked. Serial numbers follow a structured format, and `im/isOnline` accepts batched account queries and returns distinguishable online/offline/nonexistent states. In a bounded ±50 sample around one known device, 50 of 101 candidates mapped to real devices.
 
-悟空是**儿童教育机器人**，其核心使用场景是孩子通过机器人呼叫父母。已实证的两个原语组合出前所未有的社工面：
+The command registry includes reset/clear-data functionality. Those destructive commands were **not executed against third-party devices**; their reachability is based on the same handler-dispatch mechanism that was dynamically validated with non-destructive commands.
 
-1. **cmd 120（导入联系人）**：陌生账号可向机器人通讯录注入任意"姓名+号码"。已实测写入 `WANTEST/13800138000` 成功。将号码命名为"爸爸"后，**孩子"给爸爸打电话"接通的是攻击者**。
-2. **cmd 91（TTS 语音合成）**：让机器人对身边的儿童说出任意内容（已实测投递成功）。机器人是孩子信任的"伙伴"，以其口吻实施的诱导（套取家庭信息、引导线下行动）几乎没有防备成本。
+### 2.2 Persistent Control and High-Privilege Paths
 
-### 2.5 敏感数据批量窃取（零凭据）
+- **cmd 365 (DemoRunLuaScript):** the same handler was dynamically validated over the LAN path to reach system-context execution on the researcher-owned robot. The cloud IM path reaches that same handler according to the analyzed dispatch table.
+- **cmd 313/314 (OTA download and upgrade):** the source report found that the tested device used an **AOSP public test key** as an OTA trust root, materially weakening firmware authenticity.
+- **cmd 316 (ADB control):** the handler table includes a remote debugging-interface control operation.
 
-| 数据 | 通道 | 实证状态 |
+The report separates these code-supported capabilities from the non-destructive commands that were actually executed through the cloud path.
+
+### 2.3 Cameras, Microphones, and Remote Physical Behavior
+
+- **cmd 704–709 (RTAV):** the analyzed command family can establish real-time audio/video behavior and includes a motion-control operation.
+- **cmd 109:** the report dynamically validated reachability of the handler that returns video-room credentials when such a room exists; the research device had no active third-party session to access.
+- **SetCameraPrivacyHandler:** analysis identified a remotely reachable camera-privacy control.
+
+These findings make the cloud identity failure relevant to both privacy and physical-safety analysis.
+
+### 2.4 Child-Focused Social-Engineering Risk
+
+Wukong is a child-oriented educational robot. The source report dynamically validated two primitives that create a distinct social-engineering surface:
+
+1. **cmd 120 (contact import):** test data could be inserted into the researcher-owned robot's address book. A maliciously labeled contact could misrepresent whom a child is calling.
+2. **cmd 91 (TTS):** the message path could cause the owned robot to speak supplied content.
+
+The report treats these as security consequences of unauthorized command authority, not as claims about actual attacks on children.
+
+### 2.5 Sensitive Data Exposure Without Normal Account Credentials
+
+| Data | Channel | Evidence Level |
 |---|---|---|
-| 机主账号 PII（userId/用户名/昵称/微信头像/绑定时间） | 云端 `relation/getBindUsers?robotUserId=<SN>`，**无 token** | 已实证 |
-| 通讯录明文手机号 / 通话记录 | cmd 121 / 125（IM 零鉴权） | 管道全环实证（自投数据回读） |
-| 已注册人脸数据 | cmd 116 | handler 执行实证（本机为空） |
-| 相册列表/照片 | cmd 112 / 111 / 53 | 代码实证，同路径 |
-| 紧急联系人号码 | cmd 324 | 代码实证 |
-| 腾讯叮当 TVS 产品凭据（**全产品线共享一枚**） | cmd 108 回包明文 | 已实证 |
-| 机器人实时位置网络（当前 IP） | cmd 311 | 代码实证 |
-| 设备注册信息与在线状态 | `equipment/listBySerialNum` / `im/isOnline` | 已实证 |
+| Owner-account PII (userId/user name/nickname/avatar/binding time) | cloud `relation/getBindUsers?robotUserId=<SN>`, without the normal user token | dynamically validated on authorized data |
+| Address-book phone numbers / call history | cmd 121 / 125 | dynamically validated using test data on the owned device |
+| Registered face data | cmd 116 | handler execution validated; no face data existed on the test unit |
+| Photo list / photos | cmd 112 / 111 / 53 | code-supported path |
+| Emergency contact number | cmd 324 | code-supported path |
+| Tencent DingDang TVS product credential | cmd 108 response | dynamically validated |
+| Current network/IP information | cmd 311 | code-supported path |
+| Device registration and online state | `equipment/listBySerialNum` / `im/isOnline` | dynamically validated |
 
-注：教育版无实名认证体系，**身份证号不在攻击面内**（全源码树核实，避免夸大）。
+The Education Edition did not expose a real-name identity system in the analyzed source tree; the report explicitly excludes national-ID numbers from the claimed attack surface.
 
-### 2.6 凭据体系系统性失效（危害的根）
+### 2.6 Systemic IM Credential Failure
 
-`im/getInfo` 是 UBTECH 云为 App/机器人签发腾讯 IM 登录凭据（userSig）的接口，其唯一防护是客户端硬编码的静态密钥 `MD5("IM$SeCrET"+time)`——**任何人可从公开 App/固件中恢复，且服务端不校验时间窗（24 小时前的签名照样放行）、不校验账号存在性、无频率限制**。实测三个 IM 租户（1400032988 / 1400059787 / 1400031700）全部可用伪造凭据登录腾讯 IM 生产环境。这意味着该厂商消费级产品线的 IM 身份体系是**系统性失效**，不是单点漏洞。
+`im/getInfo` issues Tencent IM login credentials (`userSig`) for Apps and robots. The source report found that the endpoint depended on a static client-side secret recoverable from public App/firmware code and did not enforce the expected signature time window, account existence, or meaningful rate limits. Three IM tenants (1400032988 / 1400059787 / 1400031700) accepted forged credentials during authorized testing.
 
-### 2.7 产品线蔓延
+The report therefore characterizes the weakness as a product-line identity-system failure rather than a single isolated endpoint bug.
 
-- **悟空 2 代**：IM 租户伪造登录已实证；固件同构（`persist.mini.sid` + 机器人拿 sid 查绑定），全链适用为强推断；
-- **AlphaMini 标准版（X100）**：大概率落入默认租户（已实证可伪造登录），系统固件 1.26 GB 已下载待验证；
-- **固件供应链面**：5 条产品线（AlphaMini/AlphaMini2/AlphaMiniInEdu/Yanshee×2）的升级包经同一静态签名公网可下，为后续各线固件分析敞开大门。
+### 2.7 Product-Line Reach
+
+- **Wukong 2:** forged login to its IM tenant was directly validated; applicability of the full chain is a strong inference based on shared firmware identity structure.
+- **AlphaMini standard edition (X100):** likely associated with the tested default tenant; system firmware was acquired for follow-up validation.
+- **Firmware supply-chain surface:** upgrade packages for five product lines (AlphaMini, AlphaMini2, AlphaMiniInEdu, and two Yanshee variants) were reachable through the same static signing system.
 
 ---
 
-## 3. 漏洞根因（六环机制）
+## 3. Vulnerability Root Cause: Six-Link Mechanism
 
 ```
-SN（mDNS/BLE 广播 / 号段云端枚举）
- ① im/getInfo 伪造 userSig   静态密钥 MD5("IM$SeCrET"+time)，无鉴权、无时间窗、不存在账号照签
- ② 登录腾讯 IM               腾讯接受该 userSig（SDKAppID=1400032988）
- ③ C2C 消息投递              该 SDKAppID 未开启关系链校验，陌生人可直发机器人
- ④ 机器人侧零发送方校验       peer 仅作回包地址，不与绑定关系比对（U-33 两端代码实证）
- ⑤ ~110 handler 派发执行      含 365 Lua / 370 恢复出厂 / 312-315 OTA / 704-709 RTAV / 316 ADB
- ⑥ 响应沿 IM 返回攻击者       responseSerial 与请求一一对应
+SN (mDNS/BLE broadcast or cloud range enumeration)
+ ① im/getInfo issues a forged userSig from a client-distributed static-secret scheme
+ ② Tencent IM accepts the resulting credential for the tenant
+ ③ C2C message delivery accepts the sender in the tested tenant configuration
+ ④ Robot-side dispatcher does not compare the sender against the robot's binding relationship
+ ⑤ ~110 registered handlers become reachable
+ ⑥ Responses are returned over IM and correlated with the request
 ```
 
-关键证据锚点：
+Key evidence anchors:
 
-| 环节 | 证据 |
+| Stage | Evidence |
 |---|---|
-| 静态密钥 | App `com/common/channel/security/Auth.java`；机器人 `TencentIMManager.java:226`（两端同密钥） |
-| 机器人 IM id = SN | `Robot2PhoneMsgMgr.java:22` → `persist.mini.sid`（实机 getprop 验证） |
-| 零发送方校验 | `RobotPhoneCommuniteProxy`：peer 只用于回传，无白名单/绑定比对 |
-| 命令注册表 | `ImProtoLiteMsgRelation.java`（~110 handler）、`IMCmdId.java`（命令号） |
+| Static secret | App `com/common/channel/security/Auth.java`; robot `TencentIMManager.java:226` |
+| Robot IM id = SN | `Robot2PhoneMsgMgr.java:22` → `persist.mini.sid`, also checked on the physical device |
+| Missing sender validation | `RobotPhoneCommuniteProxy`: peer is used as the reply destination without binding/allowlist comparison |
+| Command registry | `ImProtoLiteMsgRelation.java` (~110 handlers) and `IMCmdId.java` |
 
 ---
 
-## 4. 受影响范围
+## 4. Affected Scope
 
-| 产品线 | 标识 | 状态 |
+| Product Line | Identifier | Status |
 |---|---|---|
-| 悟空教育版（AlphaMiniInEdu） | SDKAppID 1400032988 | **全链实机实证** |
-| 悟空 2 代（AlphaMini2/WK2） | SDKAppID 1400059787 | 伪造登录实证；全链强推断（固件同构） |
-| 默认产品线（疑 AlphaMini 标准版 X100 等） | SDKAppID 1400031700 | 伪造登录实证 |
-| OTA/固件面 | upgrade.ubtrobot.com | 5 条产品线固件公网可下（X100/WK2/InEdu 含完整系统 OTA） |
-| Jimu / Cruzr / Walker / Yanshee 系统等 | — | 不在此 OTA/IM 体系，无证据卷入 |
+| Wukong Education Edition (AlphaMiniInEdu) | SDKAppID 1400032988 | **complete chain dynamically validated** |
+| Wukong 2 (AlphaMini2/WK2) | SDKAppID 1400059787 | forged login validated; full-chain applicability is a strong inference based on shared firmware structure |
+| Default product line (likely including AlphaMini X100) | SDKAppID 1400031700 | forged login validated |
+| OTA / firmware surface | upgrade.ubtrobot.com | firmware for five product lines publicly reachable; X100/WK2/InEdu include full system OTA packages |
+| Jimu / Cruzr / Walker / Yanshee system families | — | no evidence in this report that they share this IM/OTA system |
 
 ---
 
-## 5. 复现环境
+## 5. Reproduction Environment
 
-- 一台能上网的电脑（Windows/Linux/macOS 均可），Node.js ≥ 18，Python 3 + `requests`；
-- 一台**自有**悟空机器人（开机联网即可，无需同网段）；验证落地效果需要机器人 shell（本包 `robot_ssh.py`，按你环境的 SSH 参数调整）；
-- Burp 复现只需 Burp Suite（见 `BURP_GUIDE.md`），脚本复现只需 Node。
+- Internet-connected Windows/Linux/macOS computer.
+- Node.js 18+ and Python 3 with `requests`.
+- A **researcher-owned** Wukong robot connected to the Internet; it does not need to share the attacker's LAN for the cloud-path validation.
+- Burp Suite may be used for HTTP inspection; the repository contains corresponding sanitized scripts and request-generation helpers.
 
-## 6. 详细复现步骤
+## 6. Reproduction Procedure
 
-### 阶段 A：云端四连（纯 HTTP，Burp/curl 均可）
+The source package separates reproduction into four stages:
 
-> 签名算法：`signature = MD5("IM$SeCrET" + 毫秒时间戳)`；`X-UBT-Sign = MD5(秒级ts + appKey + nonce + deviceId) + " ts nonce v2"`。
-> **服务端不校验时间窗（24h 已验证）——以下请求生成一次可无限重放。**
-> 一键生成四段带新鲜签名的 raw 请求：`python scripts/burp_gen_request.py`
+### Stage A: Cloud-API Validation
 
-**A1. 伪造任意账号的 IM 登录凭据（核心漏洞）**
+Authorized tests exercised the cloud credential-issuance, online-status, owner-binding, and device-registration endpoints using researcher-controlled identifiers and sanitized placeholders. The source scripts generate the signed requests and retain the exact request format in the authorized artifact.
 
-```bash
-python - << 'EOF'
-import hashlib, time, requests, urllib3
-urllib3.disable_warnings()
-t = str(int(time.time()*1000))
-sig = hashlib.md5(('IM$SeCrET'+t).encode()).hexdigest()
-r = requests.get('https://apis.ubtrobot.com/im/getInfo',
-    params={'signature': sig, 'time': t,
-            'userId': 'poc_never_registered_001',   # ← 从未注册的账号，换成谁签谁
-            'channel': 'MINIEDUCN'}, timeout=15, verify=False)
-print(r.status_code, r.text[:200])
-EOF
-```
+The evidence establishes:
 
-预期：`200 {"returnCode":"0",...,"userSig":"eJxl..."}` —— 云端对不存在的账号照签凭据。
+- `im/getInfo` returned a Tencent IM credential for a test identity that did not correspond to a normally registered user.
+- `im/isOnline` distinguished real/online, real/offline, and nonexistent serial-number values in the bounded sample.
+- `relation/getBindUsers` returned owner-binding information for the researcher-owned robot.
+- `equipment/listBySerialNum` returned device-registration information under the same client-side signing system.
 
-**A2. 全网在线设备枚举**
+### Stage B: IM Chain Closure on the Owned Robot
 
-同上签名，请求 `GET https://apis.ubtrobot.com/im/isOnline?...&accounts=<SN1>,<SN2>,...`（逗号批量，实测 20/次）。
-预期：`{"...SN_real":"Online"/"Offline", "...SN_fake":""}` 三态区分。
-批量抽样脚本：`python evidence/scan_online_sample.py`。
+The repository's `run_full_chain.js` automates credential acquisition, Tencent IM login, online-state validation, a non-destructive control query, and response correlation on the researcher-owned robot.
 
-**A3. SN → 机主 PII（零 token）**
-
-```http
-GET https://internal.ubtrobot.com/v1/minieducn/relation/getBindUsers?robotUserId=<自有机器人SN>
-X-UBT-AppId: 100020114
-X-UBT-DeviceId: <任意字符串>
-X-UBT-Sign: <按上式计算>
-```
-
-预期：返回机主 `userId/userName/nickName/userImage(微信头像)/relationDate`（参考 `evidence/relation_getBindUsers_redacted.json`）。
-
-**A4. SN → 设备注册信息**
-
-`POST https://prodapi.ubtrobot.com/equipment/equipment/listBySerialNum`，JSON body `{"serialNum":"<SN>"}`，同样仅 X-UBT 静态签名（注意 Content-Length 须与 body 一致）。
-
-### 阶段 B：IM 全链一键（伪造→登录→枚举→远控回包）
-
-```bash
-cd scripts
-npm install          # 已内置 node_modules 可跳过
-node run_full_chain.js <其他机器人设备_01>     # 换成你的机器人 SN
-```
-
-预期输出（实录：`evidence/full_chain_run_*.log`，截图：`screenshots/01_full_chain.png`）：
+The retained log shows the sequence:
 
 ```
-[步骤1] im/getInfo ... returnCode=0  SDKAppID=1400032988  userSig=eJxl...
-[步骤2] 腾讯 IM 登录: actionStatus=OK  tinyID=144115...
-[步骤3] im/isOnline 批量枚举: 目标 -> Online
-[步骤4] C2C 投递 cmd 68(查询电量): status=success
-[!!!] 机器人回包: 电量=63%  固件=v1.6.3.919
-[结论] 陌生账号 → 云端伪造凭据 → 腾讯 IM → 机器人零校验执行 → 回包。全链闭环。
+[step 1] im/getInfo ... returnCode=0
+[step 2] Tencent IM login: actionStatus=OK
+[step 3] im/isOnline: target -> Online
+[step 4] C2C delivery of a non-destructive query: status=success
+[robot response] battery and firmware information returned
+[conclusion] cloud credential path → IM → robot dispatcher → correlated response
 ```
 
-### 阶段 C：专项 PoC（均在 scripts/，用法 `node <脚本> <伪造账号> <SN>`）
+### Stage C: Specialized Test Scripts
 
-| 脚本 | 演示内容 |
+The source package contains dedicated scripts for identity-login behavior, message delivery, non-destructive control queries, test-contact data, TTS, RTAV credential handling, and multi-tenant login. Their exact invocation syntax remains in the sanitized reproduction artifacts rather than being duplicated here.
+
+### Stage D: Robot-Side Verification
+
+The source report used local inspection on the researcher-owned robot to verify effects such as configuration changes and the mapping between `persist.mini.sid` and the IM identity.
+
+### Troubleshooting
+
+| Symptom | Source-Report Interpretation |
 |---|---|
-| `run_full_chain.js` | ★ 一键全链（建议第一个跑） |
-| `im_hijack_test.js` | 顶号机器人本尊：以其 SN 伪造身份登录，接管/监听其 IM 会话 |
-| `im_send_test.js` | 陌生账号 C2C 投递验证（关系链校验未开启） |
-| `im_control_test.js` | 三连：cmd 108 取 TVS 云凭据 / cmd 116 人脸列表 / cmd 99 写主人昵称 |
-| `im_contact_pii.js` | cmd 120 注入联系人 + cmd 121 回读通讯录手机号 + cmd 125 通话记录 |
-| `im_speak_test.js` | cmd 91 TTS 让机器人说任意内容 |
-| `im_rtav_test.js` | cmd 109 取视频房间凭据 + cmd 116 人脸列表 |
-| `im_tenant_login.js` | 多租户伪造登录（ALPHAMINI=悟空2代 / 任意=默认租户） |
-
-### 阶段 D：机器人侧落地验证
-
-```bash
-python scripts/robot_ssh.py "grep -ri MASTER_NAME /data/data/*/shared_prefs/"   # 验证 cmd 99 写入
-python scripts/robot_ssh.py "getprop persist.mini.sid"                          # 验证 IM id = SN
-```
-
-### 排错表
-
-| 现象 | 原因与处理 |
-|---|---|
-| `im/getInfo` 返回非 0 | 签名算错：确认是 `MD5("IM$SeCrET"+毫秒时间戳)`（毫秒，不是秒） |
-| Node 脚本登录失败 | `npm install` 未跑；或机器人/网络到 `wss.im.qcloud.com` 不通 |
-| cmd>127 发不出去 | 已知限制：web SDK 字符串传输会损坏 >0x7F 字节；换腾讯 Android SDK（`sendMessage(byte[])`）即可，属工具问题非防护 |
-| 机器人无回包 | 机器人离线（先 `im/isOnline` 查）；或该 handler 设计上无回包（如 cmd 91） |
-| prodapi 400 | Content-Length 与 body 不一致（前置 SLB 严格校验） |
+| `im/getInfo` returns nonzero status | Signature construction or timestamp formatting mismatch |
+| Node login fails | Node dependencies not installed or network path to Tencent IM unavailable |
+| command values >127 fail in the Web SDK | Known transport limitation of the test tooling; the report treats this as a tooling issue, not an authorization control |
+| Robot does not respond | Robot offline or handler intentionally does not return a response |
+| prodapi returns 400 | Strict Content-Length/body mismatch at the front-end load balancer |
 
 ---
 
-## 7. 能力矩阵（同一零鉴权 dispatcher，证据等级分明）
+## 7. Capability Matrix
 
-| 命令 | 效果 | 证据等级 |
+The table below preserves the source report's distinction between dynamic evidence, handler-level evidence, and inference.
+
+| Command / Function | Effect | Evidence Level |
 |---|---|---|
-| cmd 68 查电量 | 回包电量+固件版本 | **实机实证** |
-| cmd 108 取 TVS 凭据 | 回包全线共享云凭据 | **实机实证** |
-| cmd 99 写主人昵称 | 配置落盘 | **实机实证**（SSH 验证） |
-| cmd 120/121/125 | 通讯录注入/导出/通话记录 | **实机实证**（假数据全环） |
-| cmd 116/112/111 | 人脸/相册 PII | handler 执行实证（本机无数据） |
-| cmd 109 | 视频房间凭据 | handler 执行实证（本机无活动房间） |
-| cmd 91 TTS | 机器人说话 | 投递实证（无回包设计） |
-| cmd 365 Lua 执行 | system 级代码执行 | 代码实证（LAN 同 handler 已拿 shell） |
-| cmd 370/371 恢复出厂/清数据 | 设备清空 | 代码实证（破坏性未执行） |
-| cmd 312–315 OTA | 刷机（配公开信任根=恶意固件） | 代码实证 |
-| cmd 704–709 RTAV | 视频开播+远程动作 | 代码实证 |
-| cmd 316 开 ADB | 调试面 | 代码实证 |
-| NetConnectOneWifi | 下发恶意 WiFi→流量接管 | 代码实证 |
+| cmd 68 | Battery and firmware query | **dynamically validated** |
+| cmd 108 | Returns TVS product credential | **dynamically validated** |
+| cmd 99 | Writes owner nickname configuration | **dynamically validated** on the owned robot |
+| cmd 120/121/125 | Test contact insertion / contact readback / call-history behavior | **dynamically validated with synthetic data** |
+| cmd 116/112/111 | Face/photo data handlers | handler execution or code path validated; test unit had no corresponding private data |
+| cmd 109 | Video-room credential handler | handler execution validated; no active third-party room was accessed |
+| cmd 91 | TTS speech | delivery validated; handler is designed without a response |
+| cmd 365 | Lua execution | code path supported; same handler dynamically validated over the LAN path |
+| cmd 370/371 | Factory reset / clear data | code-supported only; destructive action not executed |
+| cmd 312–315 | OTA update functions | code-supported |
+| cmd 704–709 | RTAV / remote-motion family | code-supported |
+| cmd 316 | ADB control | code-supported |
+| NetConnectOneWifi | Network-reconfiguration primitive | code-supported |
 
-## 8. 证据与文件索引
+## 8. Evidence and File Index
 
 ```
 cloud_im_rce_package/
-├── README.md                        ← 本手册
-├── BURP_GUIDE.md                    ← Burp Repeater 专项复现指南
-├── evidence/                        ← 证据（19 组，详见 evidence_im_chain_20260731.log）
+├── README.md
+├── BURP_GUIDE.md
+├── evidence/
 │   ├── evidence_im_chain_20260731.log
-│   ├── full_chain_run_20260731_124027.log      一键全链实录
-│   ├── relation_getBindUsers_redacted.json     SN→机主PII（脱敏）
-│   ├── online_sample_scan_20260731_125356.log  枚举密度实测（50/101）
-│   ├── ota_enum_20260731_134711.json           OTA 产品线枚举原始数据
-│   ├── ota_firmware_urls_verified.json         10 个固件 URL 验证（MD5/大小）
-│   ├── firmware/                               已下载固件（X100 1.26GB 等 3 件）
-│   └── *.py                                    各证据的生成脚本（可复跑）
-├── screenshots/                     ← 终端截图 6 张（00-05）+ Burp 实测截图 4 张（06-09）+ 渲染器
-│      06=im/getInfo 伪造凭据  07=isOnline 三态枚举
-│      08=getBindUsers 自有机器人  09=getBindUsers 第三方机器人（含真实机主 PII，
-│      ★ 对外提交前务必打码：昵称/头像/userId，或仅保留内部存档）
-└── scripts/                         ← 全部 PoC（node_modules 已装，开箱即用）
+│   ├── full_chain_run_20260731_124027.log
+│   ├── relation_getBindUsers_redacted.json
+│   ├── online_sample_scan_20260731_125356.log
+│   ├── ota_enum_20260731_134711.json
+│   ├── ota_firmware_urls_verified.json
+│   ├── firmware/
+│   └── *.py
+├── screenshots/
+└── scripts/
 ```
 
-## 9. 修复建议
+The repository manifest records which large firmware packages and sensitive raw artifacts remain outside Git. Any screenshot containing real third-party PII must remain redacted before external disclosure.
 
-1. **UBTECH 云端（治本）**：`im/getInfo` 增加调用方身份鉴权与 userId 归属校验；全业务 API 做对象级授权；废弃 `IM$SeCrET` 并轮换全部已签发凭据；更换全线共享的 TVS 默认凭据（按设备下发）；OTA 接口按 productName 做凭据隔离。
-2. **腾讯 IM 控制台（止血）**：为三个受影响 SDKAppID 开启关系链校验；核查并保护 REST API 管理员账号。
-3. **机器人固件（纵深）**：IM 派发前校验发送方绑定关系；高危命令（370/365/316/312–315）二次认证+防重放；OTA 更换公开测试密钥。
+## 9. Recommendations
+
+1. **UBTECH cloud:** add caller authentication and userId ownership checks to `im/getInfo`; enforce object-level authorization across business APIs; retire the static IM secret and rotate affected credentials; use per-device or per-principal credentials instead of product-wide shared values; isolate OTA credentials by productName.
+2. **Tencent IM configuration:** enable relationship/allowlist validation for affected tenants and protect administrative REST credentials.
+3. **Robot firmware:** validate the IM sender against the robot's bound principals before dispatch; require secondary authorization and anti-replay for high-impact commands; replace the public OTA test trust root.
 
 ---
 
-*本手册所有结论均可在授权环境复现；引用时请注明证据等级（实机实证 / 代码实证 / 强推断）。*
+*All conclusions in this guide were reproduced within the authorized research environment. When citing the results, preserve the evidence level: dynamically validated, code-supported, or strong inference.*

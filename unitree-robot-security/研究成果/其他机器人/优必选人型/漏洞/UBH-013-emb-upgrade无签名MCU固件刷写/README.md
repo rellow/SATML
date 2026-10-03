@@ -1,124 +1,113 @@
 ---
-编号: UBH-013
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: emb-upgrade无签名MCU固件刷写
+ID: UBH-013
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: emb-upgrade无签名MCU固件刷写
 ---
-# UBH-013 V2 · `/emb/upgrade` 无签名 MCU 固件刷写
+# UBH-013 V2 · Unsigned MCU Firmware Flashing via `/emb/upgrade`
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **严重** — 上传无签名固件即可刷写 MCU，写入即持久化 \|
+- Impact: **Critical in the source report** — the update interface accepts MCU firmware without a cryptographic signature, creating a firmware-persistence risk.
+- The service and request schema were confirmed; destructive MCU flashing was intentionally not performed.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- # V2 · `/emb/upgrade` 无签名 MCU 固件刷写
-- \| 组件 \| vision 板 `/emb/upgrade`（JS 桥）+ MCU（经 SocketCAN / UDP 192.168.4.1:50000） \|
-- \| 危害 \| **严重** — 上传无签名固件即可刷写 MCU，写入即持久化 \|
-- `/emb/upgrade` 接收 `board + ota_path`，把固件二进制通过 SocketCAN（can0）或 UDP
-- - **无签名 / 无加密 / 无版本回滚保护**
-- - 上传的固件即原始 MCU 镜像（STM32 等）
+- Component: vision-board `/emb/upgrade` bridge plus downstream MCU update path over SocketCAN or the internal UDP transport.
+- The request exposes `board + ota_path` and contains no signature field.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` with live service/schema evidence. Firmware flashing itself was not executed.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must reach the internal upgrade service and provide an accessible firmware path. Verification must use researcher-owned hardware and should not flash production motor-control MCUs without a repair/recovery setup.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # V2 · `/emb/upgrade` 无签名 MCU 固件刷写
-- \| 危害 \| **严重** — 上传无签名固件即可刷写 MCU，写入即持久化 \|
-- \| 复验 \| 🟢 `/emb/upgrade` 常驻，Upgrade.srv 无签名字段 \|
-- - **无签名 / 无加密 / 无版本回滚保护**
-- 2. 展示 `Upgrade.srv` 字段（board + ota_path，无签名）
-- - Upgrade.srv 定义（无签名字段）
+The MCU update protocol accepts raw firmware images without cryptographic signature verification, encryption, or rollback protection.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained probe confirms the service, request fields, and transport path, and can construct an update request without transmitting it.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 危害 \| **严重** — 上传无签名固件即可刷写 MCU，写入即持久化 \|
-- 攻击者写一个 MCU 后门（电机控制/传感器伪造/电源管理破坏），上电即驻留，
-- ## 红线 / 风险
-- ⚠️ 刷写 MCU = **不可逆**（可能烧坏关节控制器）。默认绝不发送。
+If an unauthorized firmware image is accepted, malicious behavior can persist below the Linux host layer across reboot or host-system reinstallation. Depending on the MCU's role, this can affect motor control, sensor reporting, or power management.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). The retained test does not flash an MCU.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Require cryptographic firmware signatures anchored in a device/vendor trust root.
+- Enforce anti-rollback/version policy.
+- Authenticate and authorize callers of the MCU update service.
+- Separate update transport from normal application access.
+- Add negative tests for unsigned, modified, and downgraded firmware.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review firmware evidence and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# V2 · `/emb/upgrade` 无签名 MCU 固件刷写
+# V2 · Unsigned MCU Firmware Flashing via `/emb/upgrade`
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | vision 板 `/emb/upgrade`（JS 桥）+ MCU（经 SocketCAN / UDP 192.168.4.1:50000） |
-| 危害 | **严重** — 上传无签名固件即可刷写 MCU，写入即持久化 |
-| 来源 | report_vision_core(1).md (V2) |
-| 复验 | 🟢 `/emb/upgrade` 常驻，Upgrade.srv 无签名字段 |
+| Component | Vision-board `/emb/upgrade` bridge plus MCU update path over SocketCAN / internal UDP |
+| Impact | **Critical in the source report** — an unsigned firmware image can be supplied to the MCU flashing path |
+| Source | `report_vision_core(1).md` (V2) |
+| Re-verification | 🟢 `/emb/upgrade` is present; the `Upgrade.srv` request has no signature field |
 
-## 漏洞原理
-`/emb/upgrade` 接收 `board + ota_path`，把固件二进制通过 SocketCAN（can0）或 UDP
-（192.168.4.1:50000）刷入 MCU：
-- **无签名 / 无加密 / 无版本回滚保护**
-- 上传的固件即原始 MCU 镜像（STM32 等）
-- 刷写结果直接决定 MCU 行为 —— 写入即**固件层持久化后门**
+## Vulnerability Mechanism
 
-攻击者写一个 MCU 后门（电机控制/传感器伪造/电源管理破坏），上电即驻留，
-上位机（Linux）重装系统也无法清除。
+`/emb/upgrade` accepts `board + ota_path` and transfers the referenced firmware image to an MCU using the platform's CAN/UDP update path.
 
-## 利用脚本
+The source analysis found:
+
+- no cryptographic firmware-signature verification;
+- no transport-level firmware confidentiality requirement;
+- no rollback/version protection;
+- the uploaded object is the raw MCU image.
+
+A compromised update path could therefore place persistent code in an MCU. Because that code runs below the Linux host, reinstalling the host operating system would not necessarily remove it.
+
+## Reproduction Script
+
 `scripts/exploit_mcu_upgrade.py`
 
-- 默认（安全）：
-  1. 探测 `/emb/upgrade` topic/service 存在性
-  2. 展示 `Upgrade.srv` 字段（board + ota_path，无签名）
-  3. 展示刷写通道（can0 / UDP 50000）证据
-- `--danger`：构造刷写请求（board + 恶意固件路径），**不发送**。
+Safe default behavior:
 
-## 用法
-```
-python exploit_mcu_upgrade.py            # 探测 + 字段展示
-python exploit_mcu_upgrade.py --danger   # 查看刷写载荷（不发送）
-```
+1. Confirm the `/emb/upgrade` service exists.
+2. Display the `Upgrade.srv` fields (`board` and `ota_path`) and absence of a signature field.
+3. Confirm the documented CAN/UDP update transport evidence.
 
-## 证据输出
-- Upgrade.srv 定义（无签名字段）
-- 刷写通道/目标地址证据
-- 恶意固件构造示例（保留原始 MCU 向量表）
-- `evidence/` 目录留存
+The danger mode only constructs an update request and does not send it.
 
-## 红线 / 风险
-⚠️ 刷写 MCU = **不可逆**（可能烧坏关节控制器）。默认绝不发送。
-真实复现需维修级环境 + 可回滚方案。
+## Evidence Output
 
-## 复现要点（实验环境 + 可回滚 MCU）
-构造合法 MCU 镜像 → `call /emb/upgrade`（board=目标板, ota_path=/tmp/mcu.bin）→
-观察 can0 上刷写帧与 MCU 重启后的行为。
+- `Upgrade.srv` schema.
+- Update transport and destination evidence.
+- Example benign firmware-layout information.
+- Supporting material retained under `evidence/`.
+
+## Safety Boundary
+
+⚠️ MCU flashing can permanently damage a controller or render a joint unusable. The retained verification does not transmit a firmware update.
+
+A full authorized reproduction requires repair-grade hardware, a known-good image, and a reliable recovery procedure.

@@ -1,124 +1,119 @@
 ---
-编号: UBH-026
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: 硬编码凭证全线泄露
+ID: UBH-026
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: 硬编码凭证全线泄露
 ---
-# UBH-026 硬编码凭证全线泄露（前端 / 固件 / 板间 / 云侧）
+# UBH-026 System-Wide Hard-Coded Credential Exposure
 
-## 1. 一句话结论
+## 1. Summary
 
-- ## 1. 执行摘要
-- \| registry PAT \| `glpat-zxwr…`（vision）/ `glpat-xMRz…`（motion） \| 各板 `~/.docker/config.json` \| **拉取任意版本固件镜像** \|
-- - **PAT 可拉任意历史版本** → 版本 diff 找 1day 的杠杆（固件包到位后启用）；
+The Walker S2 software stack contains reusable credentials across frontend code, board-to-board logic, firmware configuration, container management, SSH, and cloud/registry access. The source report treats this as a systemic credential-management failure that amplifies otherwise separate vulnerabilities. Full private keys and complete access tokens are intentionally excluded from the repository.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- # 硬编码凭证全线泄露（前端 / 固件 / 板间 / 云侧）
-- > 版本：2026-08-29 · 方法：前端 JS 审计 + 固件配置提取 + 实机验证（报告级）
-- **Walker S2 在前端 JS、板间逻辑、固件配置与云端连接中大面积硬编码凭证：控制台口令
-- \| registry PAT \| `glpat-zxwr…`（vision）/ `glpat-xMRz…`（motion） \| 各板 `~/.docker/config.json` \| **拉取任意版本固件镜像** \|
-- \| 云端 \| hrms.ubtrobot.com(PROD)、glcr.rd.ubtrobot.com、nexus.rd、gitlab.rd \| 固件配置 \| 云端 API/镜像/源码访问 \|
-- - **PAT 可拉任意历史版本** → 版本 diff 找 1day 的杠杆（固件包到位后启用）；
+- Evidence date: 2026-08-29.
+- Sources: frontend JavaScript, firmware configuration, local service configuration, and report-level live validation.
+- Credential classes include console credentials, OTA/client tokens, Wi-Fi API keys, internal SSH credentials, registry access tokens, SSH private keys, and UDoke secrets/JWTs.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` with report-level validation of several credential classes and their downstream authority.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must obtain firmware, frontend assets, local configuration, or another read primitive exposing the embedded material. External/cloud reuse must be evaluated only in authorized environments.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- 详见下方脱敏研究正文和材料清单。
+Long-lived reusable secrets are distributed in client-side code, firmware, local configuration, or containers rather than being provisioned per device/principal and scoped to the minimum authority.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+This report is an inventory/impact analysis rather than a single exploit chain. The public translation retains only credential types, fingerprints, and provenance—not full reusable values.
 
-## 7. 实际影响
+## 7. Impact
 
-- # 硬编码凭证全线泄露（前端 / 固件 / 板间 / 云侧）
-- **Walker S2 在前端 JS、板间逻辑、固件配置与云端连接中大面积硬编码凭证：控制台口令
-- RSA-3072 root SSH 私钥（双板通用且挂载进所有容器）、UDoke slave_secret 与无过期 slave JWT。
-- 任何一层泄露即可获得控制台/板级/镜像仓库访问。**
-- 严重度定级：**高危（High）**——凭证批量泄露，直接放大其余漏洞。
-- \| 类别 \| 凭证（类型） \| 来源 \| 影响 \|
+A single firmware or filesystem disclosure can yield credentials for multiple trust domains, including device administration, board-to-board transfer, container management, image registries, and cloud APIs. This substantially increases the blast radius of arbitrary-read vulnerabilities.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Do not publish or reuse live credential values.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Remove long-lived secrets from frontend/firmware images.
+- Provision unique per-device/per-principal credentials.
+- Rotate all exposed credentials and revoke shared legacy values.
+- Move secrets to a managed vault/HSM or equivalent protected service.
+- Scope registry/cloud tokens to least privilege and short lifetimes.
+- Stop sharing SSH private keys across boards or mounting them broadly into containers.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- External material must contain only redacted identifiers/fingerprints, never full private keys or PATs.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# 硬编码凭证全线泄露（前端 / 固件 / 板间 / 云侧）
+# System-Wide Hard-Coded Credential Exposure
 
-> 版本：2026-08-29 · 方法：前端 JS 审计 + 固件配置提取 + 实机验证（报告级）
-> **敏感性提示**：本目录只保留凭证**类型/指纹**与来源，**不收录私钥原文与完整 PAT**（见第 7 节）。
+> Version: 2026-08-29 · Method: frontend JavaScript audit + firmware/configuration extraction + report-level live validation.
+> **Sensitivity note:** this repository retains credential categories, shortened fingerprints, and source locations only. Full private keys and complete personal-access tokens remain in private research storage.
 
----
+## 1. Executive Summary
 
-## 1. 执行摘要
+The Walker S2 stack contains reusable credentials across multiple layers:
 
-**Walker S2 在前端 JS、板间逻辑、固件配置与云端连接中大面积硬编码凭证：控制台口令
-`<访问令牌_01>`/`<访问令牌_01>`、OTA token、WiFi apiKey、板间 SSH 口令、registry GitLab PAT×2、
-RSA-3072 root SSH 私钥（双板通用且挂载进所有容器）、UDoke slave_secret 与无过期 slave JWT。
-任何一层泄露即可获得控制台/板级/镜像仓库访问。**
+- management-console credentials;
+- OTA/client tokens;
+- Wi-Fi API keys;
+- an internal board-to-board SSH credential;
+- registry access tokens on both boards;
+- a shared SSH private key used across boards and mounted into containers;
+- UDoke slave secrets and long-lived JWT material;
+- production/research cloud and registry endpoints.
 
-严重度定级：**高危（High）**——凭证批量泄露，直接放大其余漏洞。
+The source report rates the issue **High** because these credentials magnify the impact of arbitrary-read and firmware-disclosure primitives.
 
----
+## 2. Credential Inventory (Sanitized)
 
-## 2. 凭证清单（类型级，去敏）
-
-| 类别 | 凭证（类型） | 来源 | 影响 |
+| Category | Material Type | Source | Potential Authority |
 |---|---|---|---|
-| 控制台口令 | `<访问令牌_01>` / `<访问令牌_01>` | 前端 SPA JS（`web-console/`） | 管理台登录 |
-| OTA token | `sk_ba1c11c…` | 前端 JS | OTA 接口鉴权（有效，已核） |
-| WiFi apiKey | ×2 | 前端 JS | WiFi 配置接口 |
-| 板间 SSH | `walker` / `aa` | sysupload 源码内置 | **跨板 SFTP 写**（Critical 链） |
-| root SSH 私钥 | RSA-3072 `x86_root`（指纹 `SHA256:Pst3yKE0…`） | `/root/.ssh/id_rsa` 经 export 读取 | 双板免密 sudo + docker 组 |
-| registry PAT | `glpat-zxwr…`（vision）/ `glpat-xMRz…`（motion） | 各板 `~/.docker/config.json` | **拉取任意版本固件镜像** |
-| UDoke | slave JWT（无过期）、`slave_secret=f64399ee…`、用户 hash `walker=d4dfb33e…` | `local/udoke_db_motion.json` | 容器管理台凭据/伪造 |
-| 云端 | hrms.ubtrobot.com(PROD)、glcr.rd.ubtrobot.com、nexus.rd、gitlab.rd | 固件配置 | 云端 API/镜像/源码访问 |
+| Management console | username/password values | frontend SPA JavaScript | administrative UI |
+| OTA | client token | frontend JavaScript | update API |
+| Wi-Fi | API keys | frontend JavaScript | network configuration |
+| Board-to-board SSH | embedded user/password | sysupload backend | cross-board SFTP |
+| Root SSH | shared RSA private key fingerprint | host SSH material | board login / privileged path |
+| Registry | shortened GitLab PAT fingerprints | board Docker configs | image-registry access |
+| UDoke | slave secret, long-lived JWT/hash material | local UDoke database | container-management plane |
+| Cloud/research infrastructure | endpoint and client configuration | firmware configs | cloud/API/registry reachability |
 
-## 3. 影响分析
+## 3. Impact Analysis
 
-- **root 私钥双板通用 + 挂载进所有容器** → 单点泄露 = 全设备域；
-- **PAT 可拉任意历史版本** → 版本 diff 找 1day 的杠杆（固件包到位后启用）；
-- **slave_secret + 无过期 JWT** → UDoke 容器管理面伪造/持久化（见 UDoke 目录）。
+- A shared SSH key across boards turns one key disclosure into a multi-board identity failure.
+- Registry access tokens can expose historical firmware versions and therefore enable version-diff analysis.
+- Container-mounted SSH material increases the number of processes capable of leaking host credentials.
+- Long-lived container-management tokens/secrets can turn local configuration disclosure into persistent management authority.
 
-## 4. 修复建议
+## 4. Recommendations
 
-1. 前端去除明文口令/token，改为服务端会话签发；
-2. 密钥与凭据统一迁入 Vault/HSM，按环境轮换；
-3. root 私钥停止跨板通用、停止挂载进容器；
-4. PAT 最小权限 + 短期有效。
+1. Remove plaintext credentials/tokens from frontend assets.
+2. Replace shared secrets with per-device/per-principal material managed by a central secret service.
+3. Stop sharing root/administrative SSH keys between boards and containers.
+4. Use short-lived, least-privilege registry/cloud tokens.
+5. Rotate/revoke all values exposed in shipped images.
 
-## 5. 证据与去敏说明
+## 5. Evidence and Redaction
 
-- 证据位置：`C:\zyh\work\机器人\优必选固件\人形\WALKER_S2_PWN.md`（凭证汇总表，含原文在私有研究材料中）；
-- 公开/报送材料请只给指纹与来源，不给私钥与完整 PAT（对应 README-总览 敏感性提示）。
+The full source evidence remains in the private research archive. Public/submission material should expose only fingerprints, credential categories, and provenance locations, never complete private keys or live access tokens.

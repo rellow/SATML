@@ -1,98 +1,97 @@
 ---
-编号: UBH-016
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: jetson-调试UART无认证root-shell
+ID: UBH-016
+validation_status: dynamically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: jetson-调试UART无认证root-shell
 ---
-# UBH-016 VB1 · Jetson 调试 UART 无认证 root shell
+# UBH-016 VB1 · Unauthenticated Root Shell over Jetson Debug UART
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **严重** — 物理接调试 UART（115200）即落入 walker shell，免密 sudo → root \|
-- ## 结论
+- Impact: **Critical in the source report** — physical access to the debug UART (115200 baud) yields an automatically logged-in `walker` shell, followed by passwordless sudo to root.
+- The source report dynamically confirmed the live mechanism.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 组件 \| vision 板 Jetson T234 调试串口 ttyTCU0 \|
+- Component: vision-board Jetson T234 debug serial port `ttyTCU0`.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`dynamically confirmed`. This status reflects the validation boundary of the source report; the migration process does not infer dynamic confirmation from directory names.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker requires physical access to the debug UART. Reproduction must use researcher-owned devices and an authorized laboratory environment.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # VB1 · Jetson 调试 UART 无认证 root shell
-- 物理接触调试口 → 无认证 shell（自动登录 walker）→ 免密 sudo → root。
+The debug console is configured for systemd autologin as the `walker` user, and that account has passwordless sudo. Physical access to the exposed UART therefore crosses directly from console access to root authority.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The sanitized research body in Section 13 records the observed console configuration and live process evidence. This repository retains only non-destructive verification material.
 
-## 7. 实际影响
+## 7. Impact
 
-- # VB1 · Jetson 调试 UART 无认证 root shell
-- \| 危害 \| **严重** — 物理接调试 UART（115200）即落入 walker shell，免密 sudo → root \|
-- root   1906  /bin/login -f     (ttyTCU0 无密码登录)
-- - walker 免密 sudo → `sudo -i` 即 root
-- 物理接触调试口 → 无认证 shell（自动登录 walker）→ 免密 sudo → root。
+Physical access to the debug UART yields an unauthenticated `walker` shell. Because `walker` has passwordless sudo, the user can obtain root privileges on the vision board.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Imported scripts were text-sanitized; original logs and larger evidence remain referenced through the repository-level material manifest.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13 below. Source files are represented by hashes and local storage paths rather than copied wholesale into Git.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Disable autologin on production debug consoles.
+- Require authenticated maintenance access for UART consoles.
+- Remove passwordless sudo from ordinary service accounts.
+- Disable or physically protect production debug headers where feasible.
+- Add regression checks for boot-console and getty configuration.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report. If one is added later, it will be registered in the [AI session index](../../../../../AI轨迹/会话索引.md).
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review device identifiers, evidence, and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# VB1 · Jetson 调试 UART 无认证 root shell
+# VB1 · Unauthenticated Root Shell over Jetson Debug UART
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | vision 板 Jetson T234 调试串口 ttyTCU0 |
-| 机制 | **systemd autologin**：`<个人邮箱_01>.d/autologin.conf` = `agetty --autologin walker` |
-| 危害 | **严重** — 物理接调试 UART（115200）即落入 walker shell，免密 sudo → root |
-| 来源 | report_voice_boot(1).md (VB1)，**本会话现场复验确认（机制与报告略不同）** |
-| 复验 | 🟢 **已确认**：autologin 配置 + 活体 `/bin/login -f` + `-bash` 会话就在 ttyTCU0 上 |
+| Component | Vision-board Jetson T234 debug UART `ttyTCU0` |
+| Mechanism | **systemd autologin**: `<个人邮箱_01>.d/autologin.conf` configures `agetty --autologin walker` |
+| Impact | **Critical in the source report** — physical connection to the 115200-baud debug UART drops directly into a walker shell; passwordless sudo reaches root |
+| Source | `report_voice_boot(1).md` (VB1), with live re-verification in the research session |
+| Re-verification | 🟢 **Confirmed**: autologin configuration, live `/bin/login -f`, and an active `-bash` session were all observed on `ttyTCU0` |
 
-## 现场复验证据（2026-08-29）
+## Live Re-Verification Evidence (2026-08-29)
+
 ```
 /etc/systemd/system/<个人邮箱_01>.d/autologin.conf:
     ExecStart=-/sbin/agetty --autologin walker --keep-baud 115200 %I $TERM
-ps aux | grep ttyTCU0:
-    root   1906  /bin/login -f     (ttyTCU0 无密码登录)
-    walker 2609  -bash             (ttyTCU0 活动会话)
-```
-- `console=ttyTCU0,115200` 双处确认（payload cmdline + DTB /chosen/bootargs）
-- 同样的 autologin 还覆盖 ttyAMA0 / ttyAMA6 / ttyS0 / tty1
-- walker 免密 sudo → `sudo -i` 即 root
-- **与报告差异**：报告的 initrd 内 "Press [ENTER] to start bash" 字符串未在
-  kernel_only_payload 和 /boot/initrd 中找到；实际机制是 systemd autologin，效果等价。
 
-## 结论
-物理接触调试口 → 无认证 shell（自动登录 walker）→ 免密 sudo → root。
-报告所述字符串虽未找到，**漏洞本身成立且已在活体系统上确认**。
-详见 `evidence/uart_shell_evidence.txt`（当前存于共享证据目录 `漏洞整理/evidence/`）。
+ps aux | grep ttyTCU0:
+    root   1906  /bin/login -f
+    walker 2609  -bash
+```
+
+- `console=ttyTCU0,115200` was confirmed in both the payload command line and DTB `/chosen/bootargs`.
+- Equivalent autologin configuration also covers `ttyAMA0`, `ttyAMA6`, `ttyS0`, and `tty1`.
+- The `walker` account has passwordless sudo and can enter a root shell.
+- **Difference from the earlier report:** the string “Press [ENTER] to start bash” described in the initrd was not found in `kernel_only_payload` or `/boot/initrd`. The actual mechanism is systemd autologin, which produces the same security outcome.
+
+## Conclusion
+
+Physical access to the debug port leads to an unauthenticated shell through automatic login and then to root through passwordless sudo. Although the earlier report's proposed initrd mechanism was not found, **the vulnerability itself was confirmed on the live system**.
+
+See `evidence/uart_shell_evidence.txt`, currently retained in the shared evidence directory `漏洞整理/evidence/`.

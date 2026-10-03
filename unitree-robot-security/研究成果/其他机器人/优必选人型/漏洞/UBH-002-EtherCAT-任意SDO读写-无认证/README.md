@@ -1,126 +1,98 @@
 ---
-编号: UBH-002
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: EtherCAT-任意SDO读写-无认证
+ID: UBH-002
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: EtherCAT-任意SDO读写-无认证
 ---
-# UBH-002 E1 · EtherCAT 任意 SDO 读写（无认证）
+# UBH-002 E1 · Unauthenticated Arbitrary EtherCAT SDO Read/Write
 
-## 1. 一句话结论
+## 1. Summary
 
-- # E1 · EtherCAT 任意 SDO 读写（无认证）
-- \| 危害 \| **严重** — 无 OD 索引白名单，可对 50 个关节任意 SDO 读/写 \|
-- `access_sdo_16` 服务允许任意传入 OD 索引（对象字典地址）进行 SDO 读/写，服务端未对
-- 返回值 `ret==0` 且 `data` 含状态字即证明任意 SDO 读。
+The ROS 2 service `/ecat/servo/access_sdo_16` accepts caller-supplied EtherCAT object-dictionary indices for SDO access without an allowlist at the service boundary. This exposes a lower-level servo configuration surface beneath ordinary motion-control APIs.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 组件 \| motion 板 EtherCAT 主站节点 `ubt_ethercat_master` \|
-- \| 服务 \| ROS2 service `/ecat/servo/access_sdo_16` \|
-- \| 复验 \| 🟢 常驻服务；运动使能时在 ROS 图内可见（当前机器人 STANDBY） \|
-- `access_sdo_16` 服务允许任意传入 OD 索引（对象字典地址）进行 SDO 读/写，服务端未对
-- - 厂商私有 SDO（固件级参数）
-- （图无该服务时提示）与运行态（图有服务时实调）。
+- Component: motion-board EtherCAT master node `ubt_ethercat_master`.
+- Service: `/ecat/servo/access_sdo_16`.
+- Service presence depends on the motion stack being active; the retained test distinguishes STANDBY from active runtime.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` with service-presence/read-only validation where available. Dangerous SDO writes were not performed.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must already have access to the robot's ROS/DDS graph through an exposed bridge, unauthenticated DDS domain, or prior foothold.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # E1 · EtherCAT 任意 SDO 读写（无认证）
-- 攻击者拿到 ROS 图访问权（DDS 无认证 / rosbridge 9090 / 已有 SSH）即可直接读写伺服对象字典，
+The SDO service accepts arbitrary object-dictionary indices and read/write mode without a server-side allowlist or operation-specific authorization.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained probe performs only safe reads of benign object-dictionary entries when the service is active. A danger mode displays representative write requests but does not send them.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 危害 \| **严重** — 无 OD 索引白名单，可对 50 个关节任意 SDO 读/写 \|
-- **越过运动控制接口直接操作伺服层**，属控制面最底层。
-- ## 红线 / 风险
+An attacker with service access could bypass higher-level motion APIs and modify low-level servo configuration, potentially changing torque/position limits, state, or vendor-specific parameters.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Default behavior is read-only.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Restrict SDO indices to a narrow allowlist and separate read from write permissions.
+- Authenticate and authorize callers at the DDS/service layer.
+- Disable arbitrary write access outside maintenance mode.
+- Add safety-state checks and audit logging for all servo-parameter writes.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# E1 · EtherCAT 任意 SDO 读写（无认证）
+# E1 · Unauthenticated Arbitrary EtherCAT SDO Read/Write
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | motion 板 EtherCAT 主站节点 `ubt_ethercat_master` |
-| 服务 | ROS2 service `/ecat/servo/access_sdo_16` |
-| 危害 | **严重** — 无 OD 索引白名单，可对 50 个关节任意 SDO 读/写 |
-| 来源 | report_motion.md (E1) |
-| 复验 | 🟢 常驻服务；运动使能时在 ROS 图内可见（当前机器人 STANDBY） |
+| Component | Motion-board EtherCAT master node `ubt_ethercat_master` |
+| Service | ROS 2 `/ecat/servo/access_sdo_16` |
+| Impact | **Critical in the source report** — arbitrary object-dictionary entries can be read or written without an index allowlist |
+| Source | `report_motion.md` (E1) |
+| Re-verification | 🟢 Service is part of the runtime graph when the motion stack is enabled |
 
-## 漏洞原理
-`access_sdo_16` 服务允许任意传入 OD 索引（对象字典地址）进行 SDO 读/写，服务端未对
-索引做白名单校验。可读写对象包括但不限于：
-- `0x2005` 位置极限（改小→关节失控）
-- `0x6071` 目标力矩（改大→输出超限）
-- `0x6041` 状态字（强制复位）
-- 厂商私有 SDO（固件级参数）
+## Vulnerability Mechanism
 
-攻击者拿到 ROS 图访问权（DDS 无认证 / rosbridge 9090 / 已有 SSH）即可直接读写伺服对象字典，
-**越过运动控制接口直接操作伺服层**，属控制面最底层。
+`access_sdo_16` accepts a slave address, object-dictionary index/sub-index, data value, and access direction. The analyzed implementation does not restrict the caller to a safe subset of indices.
 
-## 利用脚本
+The source report identifies representative safety-sensitive or low-level entries including position/torque/state values and vendor-specific SDOs. Access to this service therefore bypasses higher-level motion-control mediation and reaches the servo configuration layer directly.
+
+## Reproduction Script
+
 `scripts/exploit_sdo_readwrite.py`
 
-- 默认（安全）：读取 `0x1000`（设备类型）/ `0x6041`（状态字）作证明，兼容 STANDBY
-  （图无该服务时提示）与运行态（图有服务时实调）。
-- `--danger`：打印 SDO 写载荷（`0x2005` 位置极限、`0x6071` 目标力矩），**不发送**。
-- `--addr` / `--index` / `--write`：自定义只读 SDO。
+- Default safe mode reads benign entries such as device type/status when the service is active.
+- The script explicitly reports when the motion master is not running rather than treating absence as a failure.
+- `--danger` only prints representative write messages; it does not send them.
 
-## 用法
-```
-python exploit_sdo_readwrite.py              # 默认只读证明
-python exploit_sdo_readwrite.py --danger     # 查看写载荷（不发送）
-```
+## Evidence Output
 
-## 证据输出
-- 运行态：SDO 读回的设备类型/状态字 + `response.ret = 0`（成功）
-- STANDBY：明确标注"运动主站未启动"，避免误报
-- `evidence/` 目录留存会话日志
+- Successful read response when the service is active.
+- Clear STANDBY indication when the motion master is not running.
+- Session logs under `evidence/`.
 
-## 红线 / 风险
-⚠️ 本脚本默认不发布任何运动指令。`--danger` 载荷仅展示，实际 SDO 写会改变关节参数，
-仅在机器人吊起/急停就位后，经人工确认才可执行。
+## Safety Boundary
 
-## 复现要点
-机器人上电并 `start_ecat` 进入运行态后：
-```
-ros2 service call /ecat/servo/access_sdo_16 ecat_task_msgs/srv/AccessSdo16 \
-  "{slave_addr: 0x01, obj_index: 0x6041, obj_sub_index: 0, data: 0, obj_access: true}"
-```
-返回值 `ret==0` 且 `data` 含状态字即证明任意 SDO 读。
+⚠️ The retained script does not write any SDO. Actual writes can alter joint parameters and require a safely suspended robot, emergency-stop readiness, and explicit human authorization.

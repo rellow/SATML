@@ -1,122 +1,104 @@
 ---
-编号: UBH-025
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: wifi-set_ap命令注入到root
+ID: UBH-025
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: wifi-set_ap命令注入到root
 ---
-# UBH-025 V1 · `/sys/wifi/set_ap` 命令注入 → root
+# UBH-025 V1 · Command Injection in `/sys/wifi/set_ap` Reaches Root Context
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **严重** — SSID/密码参数拼接进 `system()`，任意命令以 root 执行 \|
-- 传入 `'; <任意命令>; '` 即可跳出引号执行任意命令（`touch /tmp/pwned`、写 SSH 公钥、改系统文件）。
+- Impact: **Critical in the source report** — SSID/password fields are incorporated into a shell command executed in a root context.
+- Live triggering was intentionally avoided because changing Wi-Fi configuration could disconnect the research robot.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 组件 \| vision 板 `ae_sys` 服务（/sys/* API） \|
-- 真实复现需在能接受机器人失联再恢复的实验环境。
-- ## 复现要点（实验环境）
+- Component: vision-board `ae_sys` service exposing the `/sys/*` API family.
+- A full dynamic test requires a controlled environment in which network loss and recovery are acceptable.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed`. The unsafe string construction and gate identifier were confirmed; the command-injection path was not triggered on the live network interface.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must reach the relevant service/API boundary and satisfy any interface-level gate. Verification should remain on researcher-owned hardware in an environment where network reconfiguration can be safely recovered.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # V1 · `/sys/wifi/set_ap` 命令注入 → root
-- \| 接口 \| `/sys/wifi/set_ap`（JSON-RPC）→ `system()` \|
-- \| 危害 \| **严重** — SSID/密码参数拼接进 `system()`，任意命令以 root 执行 \|
-- `ae_sys` 的 `/sys/wifi/set_ap` 处理器把 SSID / 密码直接拼入 `system()` 字符串：
-- 门禁 UUID `51b00e11-112d-cbec-1828-17c0734624df` 以明文存在于二进制（无签名/无令牌校验）。
-- 2. 构造注入载荷并展示完整 `system()` 字符串（**不调用**）
+The `/sys/wifi/set_ap` handler builds a shell command by interpolating attacker-controlled SSID/password strings without robust argument separation or escaping, then executes that command in a root context. The interface gate identifier is also embedded in the binary rather than providing a strong authenticated authorization boundary.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained script extracts the gate identifier, reconstructs the vulnerable command locally, and checks interface reachability. It does not submit a live network-changing request.
 
-## 7. 实际影响
+## 7. Impact
 
-- # V1 · `/sys/wifi/set_ap` 命令注入 → root
-- \| 危害 \| **严重** — SSID/密码参数拼接进 `system()`，任意命令以 root 执行 \|
-- system(cmd);   // root 上下文
-- ## 红线 / 风险
-- 随后 `ls /tmp/pwned` 验证 root 执行。
+If the vulnerable handler is invoked with crafted input, the resulting shell command can execute unintended operations with the privileges of the service. Because the service runs as root, the impact extends to complete host compromise.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). The retained test is intentionally non-invasive and does not alter Wi-Fi settings.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Replace shell-string construction with direct library/API calls or argv-style process execution.
+- Strictly validate SSID/password data as data, not shell syntax.
+- Replace static gate identifiers with authenticated and authorized callers.
+- Drop service privileges and isolate network-management operations.
+- Add regression tests for shell metacharacters and encoding edge cases.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review embedded identifiers, evidence, and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# V1 · `/sys/wifi/set_ap` 命令注入 → root
+# V1 · Command Injection in `/sys/wifi/set_ap` Reaches Root Context
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | vision 板 `ae_sys` 服务（/sys/* API） |
-| 接口 | `/sys/wifi/set_ap`（JSON-RPC）→ `system()` |
-| 危害 | **严重** — SSID/密码参数拼接进 `system()`，任意命令以 root 执行 |
-| 来源 | report_vision_core(1).md (V1) |
-| 复验 | 🔒 静态确认（红线：不动 `/sys/wifi/*`，改网络会失联） |
+| Component | Vision-board `ae_sys` service (`/sys/*` API) |
+| Interface | `/sys/wifi/set_ap` (JSON-RPC) → `system()` |
+| Impact | **Critical in the source report** — SSID/password fields are concatenated into a shell command executed as root |
+| Source | `report_vision_core(1).md` (V1) |
+| Re-verification | 🔒 Static confirmation only; live `/sys/wifi/*` calls were avoided because they can break network connectivity |
 
-## 漏洞原理
-`ae_sys` 的 `/sys/wifi/set_ap` 处理器把 SSID / 密码直接拼入 `system()` 字符串：
-```c
-snprintf(cmd, "iw dev wlan0 ... essid '%s' key '%s' ...", ssid, pwd);  // 未转义
-system(cmd);   // root 上下文
-```
-传入 `'; <任意命令>; '` 即可跳出引号执行任意命令（`touch /tmp/pwned`、写 SSH 公钥、改系统文件）。
-门禁 UUID `51b00e11-112d-cbec-1828-17c0734624df` 以明文存在于二进制（无签名/无令牌校验）。
+## Vulnerability Mechanism
 
-## 利用脚本
+The `ae_sys` handler for `/sys/wifi/set_ap` incorporates SSID and password strings directly into a shell command. The source report confirmed that the resulting command is executed by a root-context service.
+
+A crafted value containing shell syntax could therefore alter the intended command structure. The gate UUID `51b00e11-112d-cbec-1828-17c0734624df` is present in cleartext in the binary and is not, by itself, a cryptographic authorization mechanism.
+
+## Reproduction Script
+
 `scripts/exploit_wifi_setap.py`
 
-- 默认（安全）：
-  1. 提取 APIKEY / 门禁 UUID 明文证据
-  2. 构造注入载荷并展示完整 `system()` 字符串（**不调用**）
-  3. 探测 rosbridge 是否在线（调用面可达性）
-- `--danger`：展示 `call_service` 调用载荷（**不发送**，红线）。
+Safe default behavior:
 
-## 用法
-```
-python exploit_wifi_setap.py            # 证据 + 载荷构造
-python exploit_wifi_setap.py --danger   # 查看调用载荷（不发送）
-```
+1. Extract the API key/gate UUID evidence.
+2. Construct and display a representative injected command locally without invoking it.
+3. Probe whether the surrounding RPC bridge is online.
 
-## 证据输出
-- 明文 UUID/APIKEY
-- 注入后的完整 `system()` 命令串（可读、可审计）
-- `evidence/` 目录留存
+The optional danger mode only displays the service-call structure; it does not send the network-changing request.
 
-## 红线 / 风险
-🚫 **红线：不调用 `/sys/wifi/*` 任何接口** —— 改网络会与本机失联。本脚本仅静态构造 + 展示，
-真实复现需在能接受机器人失联再恢复的实验环境。
+## Evidence Output
 
-## 复现要点（实验环境）
-向 `ae_sys` 的 `/sys/wifi/set_ap` 提交 `ssid = "poc'\"; touch /tmp/pwned; echo '\""`，
-随后 `ls /tmp/pwned` 验证 root 执行。
+- Embedded UUID/API-key material.
+- Locally reconstructed vulnerable command string.
+- Supporting material retained under `evidence/`.
+
+## Safety Boundary
+
+🚫 The retained test does **not** invoke `/sys/wifi/*`, because changing the robot's network configuration could disconnect the test system. A fully authorized dynamic proof should use a disposable network setup and a harmless marker operation, followed by restoration of the original configuration.

@@ -1,119 +1,105 @@
 ---
-编号: UBH-019
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: map_http_node-Zip-Slip任意文件写
+ID: UBH-019
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: map_http_node-Zip-Slip任意文件写
 ---
-# UBH-019 S3 · map_http_node 地图上传 Zip-Slip 任意文件写（宿主进程）
+# UBH-019 S3 · Zip Slip in map_http_node Map Upload Enables Arbitrary Host File Write
 
-## 1. 一句话结论
+## 1. Summary
 
-- # S3 · map_http_node 地图上传 Zip-Slip 任意文件写（宿主进程）
-- \| 危害 \| **严重** — 上传 zip 内含绝对路径/`../` 条目 → 任意文件写（宿主 FS） \|
-- **路径不做规范化**：含 `../` 或绝对路径的条目直接替换解压目标路径 → **任意文件写**。
+- Impact: **Critical in the source report** — archive entries containing absolute paths or `../` traversal can escape the intended extraction directory and write files on the host filesystem.
+- The service is a host process rather than a containerized component.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 组件 \| vision 板**宿主进程** `map_http_node`（非容器），监听 `0.0.0.0:30023` \|
-- - 服务指纹（各路由响应）
+- Component: vision-board host process `map_http_node`, listening on `0.0.0.0:30023`.
+- Live route probing confirmed the service and upload surface.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` with live service reachability evidence and a safe proof mode limited to a temporary marker file.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must be able to reach the map-upload interface. Reproduction must use a researcher-owned system and should constrain proof writes to a temporary directory.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- 详见下方脱敏研究正文和材料清单。
+`ArchiveUtility::Decompress` does not sufficiently canonicalize or constrain archive member paths before extraction, so path-traversal or absolute-path entries can escape the intended destination.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The safe reproduction path fingerprints the service, constructs a traversal archive, and optionally proves the primitive by writing a harmless marker under `/tmp` and deleting it afterward.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 危害 \| **严重** — 上传 zip 内含绝对路径/`../` 条目 → 任意文件写（宿主 FS） \|
-- - 宿主进程 → 写宿主文件系统（非容器隔离），影响面大
-- ## 红线 / 风险
-- ⚠️ `--prove` 只写 `/tmp` 下的标记文件（不影响系统），完成后即清理。
+Because `map_http_node` runs directly on the host, a successful traversal write affects the host filesystem rather than a container overlay. Depending on process privileges and writable targets, this can become a persistence or privilege-escalation primitive.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). The `--prove` mode is restricted to a temporary marker file and cleans it up after validation.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Canonicalize every archive entry and reject absolute paths, traversal, symlinks, and paths escaping the extraction root.
+- Extract into a dedicated low-privilege directory.
+- Authenticate the upload endpoint and restrict accepted archive formats.
+- Add regression tests for Zip Slip variants and nested path tricks.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review evidence and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# S3 · map_http_node 地图上传 Zip-Slip 任意文件写（宿主进程）
+# S3 · Zip Slip in map_http_node Map Upload Enables Arbitrary Host File Write
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | vision 板**宿主进程** `map_http_node`（非容器），监听 `0.0.0.0:30023` |
-| 函数 | `ArchiveUtility::Decompress` @ 0x5f310 |
-| 危害 | **严重** — 上传 zip 内含绝对路径/`../` 条目 → 任意文件写（宿主 FS） |
-| 来源 | report_system(1).md (S3) |
-| 复验 | 🟢 `/health` `/version` `/map/list` 在线；OPTIONS `/map/upload` → 204 |
+| Component | Vision-board **host process** `map_http_node` (not containerized), listening on `0.0.0.0:30023` |
+| Function | `ArchiveUtility::Decompress` @ 0x5f310 |
+| Impact | **Critical in the source report** — archive members with absolute paths or `../` entries can write outside the extraction directory |
+| Source | `report_system(1).md` (S3) |
+| Re-verification | 🟢 `/health`, `/version`, and `/map/list` responded; OPTIONS on `/map/upload` returned 204 |
 
-## 漏洞原理
-`map_http_node` 上传地图归档后由 `ArchiveUtility::Decompress` 解压。解压时对 zip 成员
-**路径不做规范化**：含 `../` 或绝对路径的条目直接替换解压目标路径 → **任意文件写**。
-- 宿主进程 → 写宿主文件系统（非容器隔离），影响面大
-- 用途：覆盖 `authorized_keys`、写 cron、覆盖可执行文件 → 提权/持久化
-- 实测路由：`GET /map/list` 返回 `yungu_wrc/yungu_wrc123`，`OPTIONS /map/upload` → 204
+## Vulnerability Mechanism
 
-## 利用脚本
+After a map archive is uploaded, `map_http_node` passes it to `ArchiveUtility::Decompress`. The source analysis found that member paths are not normalized and constrained to the intended extraction root before files are created.
+
+- The process runs on the host, so escaped writes reach the host filesystem.
+- Depending on privileges, a generic arbitrary-write primitive can become a persistence or code-execution building block.
+- Live service probing confirmed the map API surface.
+
+## Reproduction Script
+
 `scripts/exploit_zip_slip.py`
 
-- 默认（安全）：
-  1. 指纹 30023（/health /version /map/list /map/upload-OPTIONS）
-  2. 构造 Zip-Slip 恶意归档（绝对路径条目），**不上传**
-- `--prove`：上传一个**只写 `/tmp` 标记文件**的滑动归档，经 SSH 读回验证（无害原语证明），
-  验证后自动删除标记文件。
+- Default safe mode:
+  1. Fingerprint the service through benign routes.
+  2. Construct a traversal archive locally without uploading it.
+- `--prove`: upload an archive whose escaped path is limited to a harmless marker under `/tmp`; verify the marker, then delete it.
 
-## 用法
-```
-python exploit_zip_slip.py              # 指纹 + 归档构造
-python exploit_zip_slip.py --prove      # 无害 prove（写 /tmp 标记并读回）
-```
+## Evidence Output
 
-## 证据输出
-- 服务指纹（各路由响应）
-- 滑动归档字节数 + 条目路径
-- `--prove`：上传响应 + 宿主侧 `cat` 读回的标记内容
-- `evidence/` 目录留存
+- Service fingerprints.
+- Constructed archive size and member path.
+- In prove mode, upload response and host-side readback of the temporary marker.
+- Supporting material retained under `evidence/`.
 
-## 红线 / 风险
-⚠️ `--prove` 只写 `/tmp` 下的标记文件（不影响系统），完成后即清理。
-真实利用指向 `authorized_keys`/cron 的归档**不在此脚本中自动执行**。
+## Safety Boundary
 
-## 复现要点（授权 + 非生产）
-```
-# 构造 zip：zip slip_$ (绝对路径 /tmp/pentest_xxx)
-# POST /map/upload multipart -> 触发 Decompress
-# cat /tmp/pentest_xxx  验证宿主已写入
-```
-逆向确认上传方法/字段见 RE 子代理 `_worknotes`（同一批处理中）。
+⚠️ The prove mode writes only a temporary marker under `/tmp` and cleans it up. The retained script does not automatically target persistent or security-sensitive locations.
+
+The source report describes the primitive as sufficient for arbitrary host-path writes, but the committed proof intentionally demonstrates only the harmless temporary-file case.

@@ -1,23 +1,23 @@
-# 其他机器人研究成果
+# Other-Robot Research Results
 
-本目录按机器人或产品线整理非宇树研究成果。每个子目录只保留该机器人/平台的权威漏洞报告、最小复现材料和证据索引。
+This directory organizes non-Unitree research by robot or product line. Each subdirectory retains only the canonical vulnerability reports, minimal reproduction material, and evidence indexes for that robot or platform.
 
-## 机器人/平台
+## Robots / Platforms
 
-| 机器人/平台 | 入口 | 当前状态 |
+| Robot / Platform | Entry Point | Current Status |
 |---|---|---|
-| 伽利略 | [研究索引](伽利略/README.md) | 已迁移，待后续人工复核 |
-| 优必选人型 | [研究索引](优必选人型/README.md) | 已迁移，待后续人工复核 |
-| 优必选 AI 悟空 EDU | [研究索引](优必选AI悟空EDU/README.md) | 已迁移，待后续人工复核 |
+| Galileo | [Research index](伽利略/README.md) | Migrated; pending further manual review |
+| UBTECH humanoid | [Research index](优必选人型/README.md) | Migrated; pending further manual review |
+| UBTECH AI Wukong EDU | [Research index](优必选AI悟空EDU/README.md) | Migrated; pending further manual review |
 
-## 编号规则
+## ID Conventions
 
-- 伽利略：`GAL-001`、`GAL-CHAIN-001`
-- 优必选人型：`UBH-001`、`UBH-CHAIN-001`
-- 优必选 AI 悟空 EDU：`UBW-001`、`UBW-CHAIN-001`
+- Galileo: `GAL-001`, `GAL-CHAIN-001`
+- UBTECH humanoid: `UBH-001`, `UBH-CHAIN-001`
+- UBTECH AI Wukong EDU: `UBW-001`, `UBW-CHAIN-001`
 
-编号已在重复报告合并、验证状态初步裁决和脱敏审查后分配；后续复核不得复用或重排既有编号。完整迁移清单见 [其他机器人迁移清单](../其他机器人迁移清单.md)；未提交材料统一登记在根目录 `材料清单/`。
+IDs were assigned after duplicate reports were merged, validation status was initially adjudicated, and sanitization was reviewed. Later review must not reuse or reorder existing IDs. See the [other-robot migration manifest](../其他机器人迁移清单.md) for the complete migration record. Materials that are not committed are registered under the repository-root `材料清单/` directory.
 
-## 边界
+## Scope Boundary
 
-现有 [GO2](../GO2/README.md)、[R1](../R1/README.md) 和 [跨型号](../跨型号/README.md) 目录保持不变。不同机器人之间的共性问题另见 [跨机器人](../跨机器人/README.md)。
+The existing [GO2](../GO2/README.md), [R1](../R1/README.md), and [cross-model](../跨型号/README.md) directories remain separate. Issues shared across different robot families are tracked under [cross-robot](../跨机器人/README.md).

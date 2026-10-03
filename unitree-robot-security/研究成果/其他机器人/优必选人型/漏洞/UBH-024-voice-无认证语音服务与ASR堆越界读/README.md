@@ -1,126 +1,107 @@
 ---
-编号: UBH-024
-验证状态: 静态确认
-严重程度: 中
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: voice-无认证语音服务与ASR堆越界读-1
+ID: UBH-024
+validation_status: statically confirmed
+severity: medium
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: voice-无认证语音服务与ASR堆越界读-1
 ---
-# UBH-024 VB3 · 无认证语音服务群 + ASR 堆越界读
+# UBH-024 VB3 · Unauthenticated Voice Services and ASR Heap Out-of-Bounds Read
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **中-高** — 语音链路局域网直达；ASR 44 字节 WAV 头触发堆越界读（信息泄露/崩溃） \|
-- - **声纹接口**（ws://:2025/sv）：注册/验证声纹的能力对未认证者开放（VB5）。
+The vision-board voice stack exposes ASR, TTS, voiceprint, and extension services on all interfaces without an authentication layer. Static analysis additionally identified an ASR WAV parsing path that validates the 44-byte header but does not adequately ensure the declared data length matches the available buffer, creating an out-of-bounds-read/crash risk.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- # VB3 · 无认证语音服务群 + ASR 堆越界读
-- \| 组件 \| vision 板语音服务栈（TTS / ASR / 声纹 / 扩展） \|
-- \| 端口 \| `2022` ASR 入口 · `2024` TTS WebSocket · `2025` 声纹 ws `/sv` · `2026` 扩展，均 `0.0.0.0` 无认证 \|
-- \| 复验 \| 🟢 四端口全存活；TTS 2024 实测 `{"text":"测试一下"}` → `{"httpCode":200,"status":"连接成功"}` \|
-- - **无认证服务群**：ASR/TTS/声纹 四路语音服务监听 `0.0.0.0`，无令牌无签名，局域网任何主机可直达。
-- 1. 四端口存活指纹
+- Ports: 2022 (ASR), 2024 (TTS WebSocket), 2025 (voiceprint `/sv`), and 2026 (extension service).
+- All four ports were live during re-verification.
+- A benign TTS request to port 2024 returned a successful response without authentication.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` for the ASR memory-safety issue, with live reachability evidence for the unauthenticated voice-service surface. The malformed-ASR crash probe was not sent.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker must be able to reach the voice-service ports on the network. Dynamic malformed-input testing should be confined to researcher-owned devices because it may crash the ASR process.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- # VB3 · 无认证语音服务群 + ASR 堆越界读
-- \| 端口 \| `2022` ASR 入口 · `2024` TTS WebSocket · `2025` 声纹 ws `/sv` · `2026` 扩展，均 `0.0.0.0` 无认证 \|
-- \| 危害 \| **中-高** — 语音链路局域网直达；ASR 44 字节 WAV 头触发堆越界读（信息泄露/崩溃） \|
-- - **无认证服务群**：ASR/TTS/声纹 四路语音服务监听 `0.0.0.0`，无令牌无签名，局域网任何主机可直达。
-- - **ASR 堆越界读**：语音识别对 WAV 输入只校验 44 字节头部，**不校验 `data` 区实际长度**；
-- 提交 `data` 长度声明 > 实际数据的 WAV → 越界读堆内存（信息泄露 / ASR 进程崩溃）。
+The service family lacks caller authentication, and the ASR parser trusts WAV length metadata without verifying that the corresponding payload bytes are actually present.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained probe fingerprints the four ports, sends a benign TTS request, checks voiceprint connectivity, and constructs a malformed WAV header offline without delivering it to ASR.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 危害 \| **中-高** — 语音链路局域网直达；ASR 44 字节 WAV 头触发堆越界读（信息泄露/崩溃） \|
-- 提交 `data` 长度声明 > 实际数据的 WAV → 越界读堆内存（信息泄露 / ASR 进程崩溃）。
-- ## 红线 / 风险
+- Unauthenticated access to voice-related service functionality.
+- Potential ASR process crash or unintended memory disclosure from an out-of-bounds read.
+- Unauthenticated voiceprint registration/verification functionality is also part of the exposed surface.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). The malformed ASR input is not transmitted by default.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Authenticate all voice-service connections.
+- Validate all WAV chunk lengths against the actual received buffer before reading.
+- Apply input-size limits and fail closed on malformed audio.
+- Restrict voiceprint enrollment/verification to authenticated principals.
+- Add fuzzing and regression tests for malformed audio headers.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# VB3 · 无认证语音服务群 + ASR 堆越界读
+# VB3 · Unauthenticated Voice Services and ASR Heap Out-of-Bounds Read
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | vision 板语音服务栈（TTS / ASR / 声纹 / 扩展） |
-| 端口 | `2022` ASR 入口 · `2024` TTS WebSocket · `2025` 声纹 ws `/sv` · `2026` 扩展，均 `0.0.0.0` 无认证 |
-| 危害 | **中-高** — 语音链路局域网直达；ASR 44 字节 WAV 头触发堆越界读（信息泄露/崩溃） |
-| 来源 | report_voice_boot(1).md (VB3, VB5) |
-| 复验 | 🟢 四端口全存活；TTS 2024 实测 `{"text":"测试一下"}` → `{"httpCode":200,"status":"连接成功"}` |
+| Component | Vision-board voice stack (TTS / ASR / voiceprint / extension services) |
+| Ports | `2022` ASR · `2024` TTS WebSocket · `2025` voiceprint `/sv` · `2026` extension; all bound to `0.0.0.0` |
+| Impact | **Medium–High in the source report** — unauthenticated voice access plus an ASR heap out-of-bounds-read/crash condition |
+| Source | `report_voice_boot(1).md` (VB3, VB5) |
+| Re-verification | 🟢 All four ports live; a benign TTS request returned a success response |
 
-## 漏洞原理
-- **无认证服务群**：ASR/TTS/声纹 四路语音服务监听 `0.0.0.0`，无令牌无签名，局域网任何主机可直达。
-- **ASR 堆越界读**：语音识别对 WAV 输入只校验 44 字节头部，**不校验 `data` 区实际长度**；
-  提交 `data` 长度声明 > 实际数据的 WAV → 越界读堆内存（信息泄露 / ASR 进程崩溃）。
-- **声纹接口**（ws://:2025/sv）：注册/验证声纹的能力对未认证者开放（VB5）。
+## Vulnerability Mechanism
 
-## 利用脚本
+- **Unauthenticated service family:** ASR, TTS, and voiceprint services are reachable from the LAN without a token or message signature.
+- **ASR out-of-bounds read:** the WAV parser checks the fixed-size header but does not adequately validate that the declared audio-data length is backed by actual received bytes. A mismatch can make the parser read beyond the available input.
+- **Voiceprint endpoint:** the `/sv` service exposes enrollment/verification functionality without an observed authentication gate.
+
+## Reproduction Script
+
 `scripts/exploit_voice.py`
 
-- 默认（安全）：
-  1. 四端口存活指纹
-  2. TTS 2024 WebSocket 只读合成证明（发送 `{"text":"测试一下"}`，解析返回）
-  3. 声纹 ws 连接探测
-  4. 构造 44 字节 WAV 头（`data` 长度=0）并展示越界触发原理
-- `--danger`：展示把恶意 WAV 交给 2022 ASR 的说明（**不发送**）。
+Safe default behavior:
 
-## 用法
-```
-python exploit_voice.py            # 指纹 + TTS 证明 + WAV 构造
-python exploit_voice.py --danger   # 查看 ASR 越界载荷说明（不发送）
-```
+1. Fingerprint the four ports.
+2. Send a benign TTS text request and parse the response.
+3. Probe the voiceprint WebSocket connection.
+4. Construct a minimal WAV header locally to illustrate the length-validation issue.
 
-## 证据输出
-- 四端口 OPEN 状态
-- TTS 请求/响应原文（`httpCode:200 连接成功`）
-- 44 字节 WAV 头 hex
-- `evidence/` 目录留存
+The danger mode only describes the malformed-ASR delivery path; it does not send the payload.
 
-## 红线 / 风险
-⚠️ 向 ASR 发越界载荷会消耗设备 CPU / 可能崩溃 ASR 进程，默认不发送。
-TTS 合成属无害只读证明。
+## Evidence Output
 
-## 复现要点
-```
-# TTS（无认证合成）
-ws://192.168.11.3:2024  send {"text":"测试一下"}  ->  {"httpCode":200,"status":"连接成功"}
-# ASR 越界（数据区长度=0 的 WAV）
-send 44-byte RIFF WAV (data chunk len=0) 到 2022 -> ASR 读取头部后按声明长度读堆 -> OOB
-```
+- Four-port reachability.
+- TTS request/response evidence.
+- Constructed WAV header bytes.
+- Supporting logs under `evidence/`.
+
+## Safety Boundary
+
+⚠️ Delivering the malformed ASR input may consume resources or crash the ASR service. The retained workflow does not send it.

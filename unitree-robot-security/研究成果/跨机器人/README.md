@@ -1,5 +1,5 @@
-# 跨机器人研究索引
+# Cross-Robot Research Index
 
-本目录只保存同时影响两个或多个非宇树机器人/平台的同源问题。单一机器人上的发现必须回到对应机器人目录；攻击链只引用漏洞编号，不复制报告、PoC 或证据。
+This directory is reserved for same-origin issues that affect two or more non-Unitree robots or platforms. Findings limited to a single robot must remain in that robot's directory. Attack-chain documents reference vulnerability IDs rather than duplicating reports, PoCs, or evidence.
 
-当前暂无完成裁决的跨机器人漏洞。
+There are currently no fully adjudicated cross-robot vulnerabilities.

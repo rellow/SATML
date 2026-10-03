@@ -1,120 +1,106 @@
 ---
-编号: UBH-003
-验证状态: 静态确认
-严重程度: 中
-披露状态: 内部研究
-源平台: 优必选人型
-源候选目录: EtherCAT-原始关节指令无钳位
+ID: UBH-003
+validation_status: statically confirmed
+severity: medium
+disclosure_status: internal research
+source_platform: UBTECH Humanoid
+source_candidate_directory: EtherCAT-原始关节指令无钳位
 ---
-# UBH-003 E2 · EtherCAT 原始关节指令（无钳位）
+# UBH-003 E2 · Raw EtherCAT Joint Commands Without Safety Clamping
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 危害 \| **严重** — 直接下发 CSP/CSV/CST（8/9/10）+ 目标力矩 0x6071，50 关节，无超限钳位 \|
+- Impact: **Critical in the source report** — the raw servo-command topic carries CSP/CSV/CST control modes and target position/velocity/torque values for 50 joints without an independent server-side safety clamp.
+- The topic and live RL-controller traffic were observed; unsafe command publication was intentionally not performed.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 组件 \| motion 板 EtherCAT 主站节点 `ubt_ethercat_master` \|
-- \| 服务 \| ROS2 topic `/ecat/servo/cmd`（`ecat_task_msgs/msg/ServoCmdArray`） \|
-- \| 复验 \| 🟢 常驻服务；运行态在 ROS 图内可见（当前机器人 STANDBY） \|
-- 目标位置/速度/力矩（`0x6071`）、加减速等。**服务端不做任何位置/力矩钳位**。
+- Component: motion-board EtherCAT master node `ubt_ethercat_master`.
+- ROS 2 topic: `/ecat/servo/cmd` using `ecat_task_msgs/msg/ServoCmdArray`.
+- The topic appears in the runtime ROS graph when the motion stack is active.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed` with live read-only topic evidence. No malicious joint command was published.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+An attacker must obtain publish access to the robot's ROS/DDS control graph, for example through another exposed bridge or an existing foothold. Verification should remain read-only unless the robot is safely suspended and emergency-stop controls are in place.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- RL 控制器（强化学习步态）本身在发布，攻击者若拿到发布权限（DDS 无认证 /
+The low-level servo command interface accepts raw position, velocity, torque, and operating-mode values without enforcing independent bounds at the EtherCAT command boundary.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained probe subscribes to the topic and records real controller traffic to establish message structure and reachability. The danger mode constructs an out-of-range example but does not publish it.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 危害 \| **严重** — 直接下发 CSP/CSV/CST（8/9/10）+ 目标力矩 0x6071，50 关节，无超限钳位 \|
-- `/ecat/servo/cmd` 发布 50 关节的原始控制字数组：控制模式（CSP=8 / CSV=9 / CST=10）、
-- RL 控制器（强化学习步态）本身在发布，攻击者若拿到发布权限（DDS 无认证 /
-- - 干扰 RL 控制流 → 摔倒/失控
-- - 默认（安全）：订阅 `/ecat/servo/cmd`，采集真实 RL 控制器流量作证明（看到真实控制数组
-- - 收到的真实控制数组（含模式、目标值样例，截断展示）
+A publisher with access to this topic could interfere with the normal controller by supplying extreme torque or position values, potentially causing joint overtravel, loss of balance, or other unsafe motion.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). The committed probe only subscribes to `/ecat/servo/cmd`.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Enforce hard position, velocity, torque, acceleration, and mode limits below the ROS publisher boundary.
+- Authenticate/authorize publishers to safety-critical DDS topics.
+- Add watchdogs and arbitration between high-level controllers and raw servo commands.
+- Add regression tests for out-of-range and conflicting commands.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review safety evidence and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# E2 · EtherCAT 原始关节指令（无钳位）
+# E2 · Raw EtherCAT Joint Commands Without Safety Clamping
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 组件 | motion 板 EtherCAT 主站节点 `ubt_ethercat_master` |
-| 服务 | ROS2 topic `/ecat/servo/cmd`（`ecat_task_msgs/msg/ServoCmdArray`） |
-| 危害 | **严重** — 直接下发 CSP/CSV/CST（8/9/10）+ 目标力矩 0x6071，50 关节，无超限钳位 |
-| 来源 | report_motion.md (E2) |
-| 复验 | 🟢 常驻服务；运行态在 ROS 图内可见（当前机器人 STANDBY） |
+| Component | Motion-board EtherCAT master node `ubt_ethercat_master` |
+| Topic | `/ecat/servo/cmd` (`ecat_task_msgs/msg/ServoCmdArray`) |
+| Impact | **Critical in the source report** — raw CSP/CSV/CST commands plus target position/velocity/torque for 50 joints are accepted without an independent clamp |
+| Source | `report_motion.md` (E2) |
+| Re-verification | 🟢 Topic/service present in the runtime graph; robot was in STANDBY during the retained review |
 
-## 漏洞原理
-`/ecat/servo/cmd` 发布 50 关节的原始控制字数组：控制模式（CSP=8 / CSV=9 / CST=10）、
-目标位置/速度/力矩（`0x6071`）、加减速等。**服务端不做任何位置/力矩钳位**。
-RL 控制器（强化学习步态）本身在发布，攻击者若拿到发布权限（DDS 无认证 /
-rosbridge 9090 / 已有 SSH）即可：
-- 构造极端 CST 力矩 → 关节飞车
-- 构造非法位置 → 超出机械极限
-- 干扰 RL 控制流 → 摔倒/失控
+## Vulnerability Mechanism
 
-## 利用脚本
+`/ecat/servo/cmd` carries a raw control-word array for 50 joints, including CSP/CSV/CST operating modes and target position, velocity, torque, acceleration, and deceleration fields.
+
+The source analysis found no independent bound enforcement at this service boundary. The normal RL gait controller itself publishes to the same interface. If an attacker obtains publish authority through an exposed DDS/bridge path or prior compromise, conflicting or extreme values could reach the servo layer.
+
+Potential outcomes include:
+
+- excessive torque requests;
+- positions outside mechanical operating limits;
+- interference with the normal RL control stream, causing instability or falls.
+
+## Reproduction Script
+
 `scripts/exploit_servo_cmd.py`
 
-- 默认（安全）：订阅 `/ecat/servo/cmd`，采集真实 RL 控制器流量作证明（看到真实控制数组
-  即证明该 topic 可读、结构可解析）。
-- `--danger`：构造 50 关节 CST + 最大力矩载荷（默认 **不发送**，仅打印十六进制）。
-- `--n 30`：订阅条数上限。
+- Default safe mode subscribes to `/ecat/servo/cmd` and records authentic RL-controller traffic.
+- `--danger` only constructs and prints an extreme 50-joint test message; it does not publish it.
+- `--n` limits the number of observed messages.
 
-## 用法
-```
-python exploit_servo_cmd.py            # 订阅证明
-python exploit_servo_cmd.py --danger   # 查看恶意载荷（不发送）
-```
+## Evidence Output
 
-## 证据输出
-- 收到的真实控制数组（含模式、目标值样例，截断展示）
-- topic 类型与字段数
-- `evidence/` 目录留存会话日志
+- Real command-array examples with operating mode and target fields.
+- Topic type and array structure.
+- Session logs under `evidence/`.
 
-## 红线 / 风险
-⚠️ **绝不发布本 topic**，除非机器人已吊起/急停就位。`--danger` 仅打印载荷。
-本脚本对 `/ecat/servo/cmd` 只读订阅，不改变任何关节状态。
+## Safety Boundary
 
-## 复现要点
-机器人上电运行 RL 步态时：
-```
-ros2 topic echo /ecat/servo/cmd ecat_task_msgs/msg/ServoCmdArray
-```
-看到 50 关节实时控制数组即可确认；随后手工构造 `ServoCmdArray` 发布即可覆写控制器输出。
+⚠️ The retained script never publishes to the topic. Any active test would require a safely suspended robot, emergency-stop readiness, and explicit human approval.

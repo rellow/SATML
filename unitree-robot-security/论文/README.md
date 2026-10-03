@@ -1,8 +1,8 @@
-# 论文材料
+# Paper Materials
 
-本目录用于保存中文论文正文、图表、数据表与参考资料。任何论文结论必须能够追踪到漏洞、攻击链、复现证据和 AI 会话事件。
+This directory stores manuscript text, figures, data tables, and reference material. Every paper claim must be traceable to a vulnerability record, attack chain, reproduction evidence, and relevant AI-session events.
 
-- [论文结论—证据对应表](数据表/论文结论-证据对应表.md)
-- `正文/`：论文正文与章节草稿；
-- `图表/`：自制图表；
-- `参考资料/`：允许进入 Git 的脱敏参考报告。
+- [Paper claim–evidence mapping](数据表/论文结论-证据对应表.md)
+- `正文/`: manuscript text and section drafts;
+- `图表/`: original figures and tables;
+- `参考资料/`: sanitized reference reports that are permitted in Git.
