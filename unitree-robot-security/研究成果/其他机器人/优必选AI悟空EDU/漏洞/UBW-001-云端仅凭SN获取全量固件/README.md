@@ -1,249 +1,231 @@
 ---
-编号: UBW-001
-验证状态: 动态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 优必选AI悟空EDU
-源候选目录: 云端仅凭SN获取全量固件
+ID: UBW-001
+validation_status: dynamically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: UBTECH AI Wukong EDU
+source_candidate_directory: 云端仅凭SN获取全量固件
 ---
-# UBW-001 UBTECH 悟空2代（AlphaMini2）云端仅凭 SN 获取全量固件 — 分析与复现手册
+# UBW-001 UBTECH Wukong 2 (AlphaMini2): Full Firmware Retrieval from the Cloud Using Only an SN — Analysis and Reproduction Guide
 
-## 1. 一句话结论
+## 1. Summary
 
-- ## 1. 执行摘要
-- **攻击者无需账号、无需拥有设备、无需与设备同网，仅凭固件/App 内公开可提取的一组 appId/appKey 和一个任意 SN 字符串（甚至是不存在的 SN），即可从 UBTECH 云端枚举并下载悟空2代的全部已发布固件**——包括 1.18 GB 完整安卓系统 OTA（含 boot/system/vendor 等 8 分区）、胸部主控 MCU 固件、6 路舵机固件。
-- 严重度定级：**高（High）**——固件是攻击面地图：任何人可离线分析最新固件挖掘 Nday、提取内嵌密钥（OTA/IM/MQTT 凭据均随固件公开）、研究 MCU/舵机固件刷写链。与同目录"云端任意机器人未授权控制"组合时，构成"拿到固件→挖洞→批量攻击在线设备"的完整前置条件。
-- ## 2. 危害全景
-- 头：X-UBT-AppId / X-UBT-DeviceId(任意SN) / X-UBT-Sign / X-UBT-Timestamp / X-UBT-Nonce
+- ## 1. Executive Summary
+- **An attacker does not need an account, device ownership, or network proximity to the device. Using only a publicly extractable appId/appKey pair from firmware/App code and an arbitrary SN string (even a nonexistent SN), the attacker can enumerate and download all released firmware for Wukong 2 from the UBTECH cloud**—including the 1.18 GB full Android OTA image (eight partitions including boot/system/vendor), the chest-controller MCU firmware, and firmware for six servos.
+- Severity: **High**. Firmware acts as an attack-surface map: anyone can analyze current firmware offline, identify N-days, extract embedded keys (OTA/IM/MQTT credentials are all exposed in firmware), and study MCU/servo update chains. When combined with the report on unauthorized control of arbitrary robots through the cloud, this creates the full prerequisite sequence “obtain firmware → find vulnerabilities → attack online devices at scale.”
+- ## 2. Impact Overview
+- Headers: X-UBT-AppId / X-UBT-DeviceId(arbitrary SN) / X-UBT-Sign / X-UBT-Timestamp / X-UBT-Nonce
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- # UBTECH 悟空2代（AlphaMini2）云端仅凭 SN 获取全量固件 — 分析与复现手册
-- > 版本：2026-07-29 · 环境：SRC 授权测试环境 · 实证设备：自有悟空（SN=<其他机器人设备_01>）
-- **攻击者无需账号、无需拥有设备、无需与设备同网，仅凭固件/App 内公开可提取的一组 appId/appKey 和一个任意 SN 字符串（甚至是不存在的 SN），即可从 UBTECH 云端枚举并下载悟空2代的全部已发布固件**——包括 1.18 GB 完整安卓系统 OTA（含 boot/system/vendor 等 8 分区）、胸部主控 MCU 固件、6 路舵机固件。
-- - **1 组**公开凭据通吃：appId `980020069`（固件 OtaService 内嵌），服务端对 deviceId 只做"签名自洽"校验，**不校验 SN 是否真实存在、是否归属调用方**（实测不存在的 SN `<其他机器人设备_01>` 与真实 SN 返回完全一致）；
-- - **8 个固件模块**当前可下载：android 整包 v1.6.0.3（2026-08-24 发布）+ MCU app v1.1.2.9 + 6 个 2kg 舵机固件 v2.25.09.09；
-- 严重度定级：**高（High）**——固件是攻击面地图：任何人可离线分析最新固件挖掘 Nday、提取内嵌密钥（OTA/IM/MQTT 凭据均随固件公开）、研究 MCU/舵机固件刷写链。与同目录"云端任意机器人未授权控制"组合时，构成"拿到固件→挖洞→批量攻击在线设备"的完整前置条件。
+- # UBTECH Wukong 2 (AlphaMini2): Full Firmware Retrieval from the Cloud Using Only an SN — Analysis and Reproduction Guide
+- > Version: 2026-07-29 · Environment: SRC-authorized test environment · Validated device: researcher-owned Wukong (SN=<其他机器人设备_01>)
+- **An attacker does not need an account, device ownership, or network proximity to the device. Using only a publicly extractable appId/appKey pair from firmware/App code and an arbitrary SN string (even a nonexistent SN), the attacker can enumerate and download all released firmware for Wukong 2 from the UBTECH cloud**—including the 1.18 GB full Android OTA image (eight partitions including boot/system/vendor), the chest-controller MCU firmware, and firmware for six servos.
+- **One public credential set** is sufficient: appId `980020069` (embedded in firmware OtaService). The server checks only whether the deviceId is self-consistent with the signature and **does not verify that the SN actually exists or belongs to the caller**. A nonexistent SN `<其他机器人设备_01>` produced exactly the same response as a real SN during testing.
+- **Eight firmware modules** were downloadable at the time of testing: Android full image v1.6.0.3 (released 2026-08-24), MCU app v1.1.2.9, and six 2 kg servo firmware images v2.25.09.09.
+- Severity: **High**. Firmware acts as an attack-surface map: anyone can analyze current firmware offline, identify N-days, extract embedded keys (OTA/IM/MQTT credentials are all exposed in firmware), and study MCU/servo update chains. When combined with the report on unauthorized control of arbitrary robots through the cloud, this creates the full prerequisite sequence “obtain firmware → find vulnerabilities → attack online devices at scale.”
 
-## 3. 验证状态
+## 3. Validation Status
 
-`动态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`dynamically confirmed`. This status reflects the validation boundary of the source report; the migration process does not treat a directory name as evidence of dynamic confirmation.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+Attack preconditions are defined by the sanitized research body below. Reproduction must use researcher-owned devices, isolated networks, and authorized environments, and must not perform writes, control actions, or destructive operations against third-party devices.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- ## 3. 漏洞根因
-- \| `mcu-app` \| v1.1.2.9 \| 90,832 B \| 2026-08 \| 胸部主控 MCU 固件（无签名，仅 MD5） \|
-- \| 现象 \| 原因与处理 \|
+- ## 3. Vulnerability Root Cause
+- | `mcu-app` | v1.1.2.9 | 90,832 B | 2026-08 | Chest-controller MCU firmware (unsigned; MD5 only) |
+- | Symptom | Cause and Handling |
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The entry point, protocol, and sequence described by the source report appear in the sanitized research body in Section 13. This directory retains only minimal reproduction material and does not duplicate large raw evidence.
 
-## 7. 实际影响
+## 7. Impact
 
-- > 未对任何第三方设备执行写入/控制操作。本手册仅供防御研究与负责任披露使用。
-- 严重度定级：**高（High）**——固件是攻击面地图：任何人可离线分析最新固件挖掘 Nday、提取内嵌密钥（OTA/IM/MQTT 凭据均随固件公开）、研究 MCU/舵机固件刷写链。与同目录"云端任意机器人未授权控制"组合时，构成"拿到固件→挖洞→批量攻击在线设备"的完整前置条件。
-- ## 2. 危害全景
-- **"凭 SN 拿固件"因此不是单纯的信息泄露，而是把所有依赖"客户端秘密"的防护全部架空**：
-- 关联分析（本漏洞的下游危害证明）见 `脱壳分析/OTA/`：
+- > No write or control operation was performed against any third-party device. This guide is for defensive research and responsible disclosure only.
+- Severity: **High**. Firmware acts as an attack-surface map: anyone can analyze current firmware offline, identify N-days, extract embedded keys (OTA/IM/MQTT credentials are all exposed in firmware), and study MCU/servo update chains. When combined with the report on unauthorized control of arbitrary robots through the cloud, this creates the full prerequisite sequence “obtain firmware → find vulnerabilities → attack online devices at scale.”
+- ## 2. Impact Overview
+- **Obtaining firmware using only an SN is therefore not merely an information leak; it defeats every protection that depends on a “client-side secret.”**
+- See `脱壳分析/OTA/` for related downstream-impact analysis.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Imported scripts were text-sanitized; original scripts, logs, packet captures, and binaries that were not imported are recorded in the repository-level material manifest.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13 below. Source files are represented only by hashes and local storage paths; raw sensitive material is not copied into Git.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Enforce authentication, fine-grained authorization, message-integrity validation, and replay protection at the entry point.
+- Apply allowlists to paths, lengths, protocol fields, file types, and state transitions.
+- Remove hard-coded credentials and rotate exposed material.
+- Drop privileges for high-risk services and add audit logging and negative regression tests.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report. If such a record is added later, it will be registered in the [AI session index](../../../../../AI轨迹/会话索引.md).
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
+- Before external disclosure, re-review credentials, device identifiers, evidence, and vendor-coordination status.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# UBTECH 悟空2代（AlphaMini2）云端仅凭 SN 获取全量固件 — 分析与复现手册
+# UBTECH Wukong 2 (AlphaMini2): Full Firmware Retrieval from the Cloud Using Only an SN — Analysis and Reproduction Guide
 
-> 版本：2026-07-29 · 环境：SRC 授权测试环境 · 实证设备：自有悟空（SN=<其他机器人设备_01>）
-> **边界声明**：全部查询仅请求升级元数据与 HTTP HEAD 探测；整包下载仅针对自有设备对应产品线。
-> 未对任何第三方设备执行写入/控制操作。本手册仅供防御研究与负责任披露使用。
-
----
-
-## 1. 执行摘要
-
-**攻击者无需账号、无需拥有设备、无需与设备同网，仅凭固件/App 内公开可提取的一组 appId/appKey 和一个任意 SN 字符串（甚至是不存在的 SN），即可从 UBTECH 云端枚举并下载悟空2代的全部已发布固件**——包括 1.18 GB 完整安卓系统 OTA（含 boot/system/vendor 等 8 分区）、胸部主控 MCU 固件、6 路舵机固件。
-
-关键数字：
-
-- **1 组**公开凭据通吃：appId `980020069`（固件 OtaService 内嵌），服务端对 deviceId 只做"签名自洽"校验，**不校验 SN 是否真实存在、是否归属调用方**（实测不存在的 SN `<其他机器人设备_01>` 与真实 SN 返回完全一致）；
-- **8 个固件模块**当前可下载：android 整包 v1.6.0.3（2026-08-24 发布）+ MCU app v1.1.2.9 + 6 个 2kg 舵机固件 v2.25.09.09；
-- **全部下载 URL 公开无鉴权**：CDN（assets-new.ubtrobot.com）8 个 URL 经 HEAD 实测全部 200，浏览器直接可下；
-- **签名算法完全可恢复**：`X-UBT-Sign = MD5(秒级ts + appKey + nonce8 + deviceId) + " ts nonce v2"`，ts 由云端公开接口下发。
-
-严重度定级：**高（High）**——固件是攻击面地图：任何人可离线分析最新固件挖掘 Nday、提取内嵌密钥（OTA/IM/MQTT 凭据均随固件公开）、研究 MCU/舵机固件刷写链。与同目录"云端任意机器人未授权控制"组合时，构成"拿到固件→挖洞→批量攻击在线设备"的完整前置条件。
+> Version: 2026-07-29 · Environment: SRC-authorized test environment · Validated device: researcher-owned Wukong (SN=<其他机器人设备_01>)
+> **Boundary statement:** all queries requested only upgrade metadata and HTTP HEAD probes; full-package downloads were limited to the product line corresponding to researcher-owned devices.
+> No write or control operation was performed against any third-party device. This guide is for defensive research and responsible disclosure only.
 
 ---
 
-## 2. 危害全景
+## 1. Executive Summary
 
-### 2.1 固件 = 攻击面地图与密钥库
+**An attacker does not need an account, device ownership, or network proximity to the device. Using only a publicly extractable appId/appKey pair from firmware/App code and an arbitrary SN string (even a nonexistent SN), the attacker can enumerate and download all released firmware for Wukong 2 from the UBTECH cloud**—including the 1.18 GB full Android OTA image (eight partitions including boot/system/vendor), the chest-controller MCU firmware, and firmware for six servos.
 
-拿到的 android 整包可完整重建系统镜像（我们已验证 8 个分区 SHA-256 与 manifest 一致），其中明文包含：
+Key figures:
 
-- OTA 查询凭据（appId `980020069` + appKey，`com.ubtrobot.mini.ota.BuildConfig`）；
-- 腾讯云 IM / MQTT 相关 appKey（980020055 / 980020054 体系，MainApp/SpeechService 内嵌）；
-- 全部系统应用（MainApp/Master/OtaService/SpeechService 等）的完整代码——本工作区已据此发现
-  master 总线零鉴权、静默安装不验签、MCU 固件 MD5-only 刷写、zip-slip 等 Critical 级问题（见 `脱壳分析/OTA/32-36` 报告）。
+- **One public credential set** is sufficient: appId `980020069` (embedded in firmware OtaService). The server checks only whether the deviceId is self-consistent with the signature and **does not verify that the SN actually exists or belongs to the caller**. A nonexistent SN `<其他机器人设备_01>` produced exactly the same response as a real SN during testing.
+- **Eight firmware modules** were downloadable at the time of testing: Android full image v1.6.0.3 (released 2026-08-24), MCU app v1.1.2.9, and six 2 kg servo firmware images v2.25.09.09.
+- **All download URLs were publicly accessible without authentication:** all eight CDN URLs at assets-new.ubtrobot.com returned HTTP 200 to HEAD requests and could be fetched directly by a browser.
+- **The signing algorithm was fully recoverable:** `X-UBT-Sign = MD5(second-level ts + appKey + nonce8 + deviceId) + " ts nonce v2"`; the timestamp is provided by a public cloud endpoint.
 
-**"凭 SN 拿固件"因此不是单纯的信息泄露，而是把所有依赖"客户端秘密"的防护全部架空**：
-凡是用固件内嵌密钥做的接口鉴权（OTA、robot-login、im/getInfo），对任何攻击者都是敞开的。
-
-### 2.2 MCU / 舵机固件的硬件攻击面
-
-- `app-wk2_mcu_v1.1.2.9_signed.bin`（90 KB，Cortex-M）：经分析**无密码学签名空间**（尾部仅 64B ASCII 版本信息），
-  刷写校验仅 MD5——拿到固件格式即可构造可刷入的恶意 MCU 固件；
-- 6 个 2kg 舵机固件（各 12 KB）公开可下，舵机总线协议与 IAP 流程可被离线逆向。
-
-### 2.3 规模化与产品线蔓延
-
-- SN 号段连续（`<其他机器人设备_01>` + 8 位数字），但**本漏洞连真实 SN 都不需要**——deviceId 是自由文本；
-- 同一签名体系覆盖多条产品线（同目录报告已实证 5 条产品线固件可下）；AlphaMini2 的查询还暴露出
-  接口对 productName 不做凭据隔离（用机器人固件凭据可查手机 App 渠道，反之亦然）。
+Severity: **High**. Firmware acts as an attack-surface map: anyone can analyze current firmware offline, identify N-days, extract embedded keys (OTA/IM/MQTT credentials are all exposed in firmware), and study MCU/servo update chains. When combined with the report on unauthorized control of arbitrary robots through the cloud, this creates the full prerequisite sequence “obtain firmware → find vulnerabilities → attack online devices at scale.”
 
 ---
 
-## 3. 漏洞根因
+## 2. Impact Overview
+
+### 2.1 Firmware as an Attack-Surface Map and Key Store
+
+The downloaded Android package can reconstruct the complete system image; the eight partition SHA-256 values were verified against the manifest. In cleartext it contains:
+
+- OTA query credentials (appId `980020069` plus appKey in `com.ubtrobot.mini.ota.BuildConfig`);
+- Tencent Cloud IM/MQTT-related appKeys in the 980020055 / 980020054 families, embedded in MainApp/SpeechService;
+- complete code for system applications including MainApp, Master, OtaService, and SpeechService. Analysis in this workspace used that code to identify issues such as unauthenticated master-bus access, silent installation without signature verification, MD5-only MCU firmware flashing, and Zip Slip; see the reports under `脱壳分析/OTA/32-36`.
+
+**Obtaining firmware using only an SN is therefore not merely an information leak; it defeats every protection that depends on a “client-side secret.”** Any interface whose authentication relies on keys embedded in firmware—such as OTA, robot-login, and im/getInfo—must be treated as exposed to an attacker who can obtain the firmware.
+
+### 2.2 MCU / Servo Firmware Attack Surface
+
+- `app-wk2_mcu_v1.1.2.9_signed.bin` (90 KB, Cortex-M) was found to contain **no cryptographic-signature space**; only a 64-byte ASCII version trailer was present. Flashing validation is MD5-only, so the firmware format can be analyzed without relying on a signing trust anchor.
+- Six 2 kg servo firmware images (12 KB each) were publicly downloadable, allowing the servo-bus protocol and IAP flow to be studied offline.
+
+### 2.3 Scale and Product-Line Reach
+
+- SN values use a sequential-looking range (`<其他机器人设备_01>` plus eight digits), but **this vulnerability does not require a real SN at all**; deviceId is free-form text.
+- The same signing system spans multiple product lines; reports in the same directory confirmed downloadable firmware for five product lines. AlphaMini2 queries also showed that productName is not isolated by credential domain: robot-firmware credentials can query mobile-App channels and vice versa.
+
+---
+
+## 3. Vulnerability Root Cause
 
 ```
-公开 App/固件
- ① 提取 appId 980020069 + appKey（OtaService BuildConfig 明文常量）
- ② 签名算法逆出：MD5(ts+appKey+nonce+deviceId)（秒级 ts 由 /v1/client-auth-service/api/timestamp 公开下发）
+Public App / firmware
+ ① Extract appId 980020069 + appKey (cleartext constants in OtaService BuildConfig)
+ ② Recover signing algorithm: MD5(ts+appKey+nonce+deviceId)
+    (second-level ts is returned by /v1/client-auth-service/api/timestamp)
  ③ GET /v1/upgrade-rest/version/upgradable?productName=AlphaMini2&moduleNames=...&versionNames=...
-    头：X-UBT-AppId / X-UBT-DeviceId(任意SN) / X-UBT-Sign / X-UBT-Timestamp / X-UBT-Nonce
- ④ 服务端只校验"签名与 appId/deviceId 自洽" → 返回包名/URL/MD5/大小/发布时间
- ⑤ packageUrl 指向公开 CDN → 无鉴权直接下载
+    Headers: X-UBT-AppId / X-UBT-DeviceId(arbitrary SN) / X-UBT-Sign / X-UBT-Timestamp / X-UBT-Nonce
+ ④ Server checks only that signature and appId/deviceId are self-consistent
+    → returns package name / URL / MD5 / size / publication time
+ ⑤ packageUrl points to a public CDN → direct unauthenticated download
 ```
 
-设计缺陷三点：
+Three design defects are involved:
 
-1. **客户端密钥当服务端鉴权用**：appKey 随每台设备固件、每个 App 安装包分发，不具备秘密性；
-2. **无对象级授权**：deviceId（SN）不参与任何归属/存在性校验，仅作为签名串的一个字段；
-3. **CDN 无防盗链/临时签名**：packageUrl 永久有效、公开可下（实测 HEAD 200，无 Cookie/Referer 要求）。
+1. **A client-distributed key is used as a server-side authentication secret.** The appKey ships with every device firmware image and App package and therefore cannot be treated as secret.
+2. **No object-level authorization.** deviceId (SN) is not checked for existence or ownership; it is only another field in the signed string.
+3. **No CDN access control or short-lived signing.** packageUrl values remain directly accessible; HEAD requests returned 200 without Cookie or Referer requirements.
 
-关键证据锚点：
+Key evidence anchors:
 
-| 环节 | 证据 |
+| Stage | Evidence |
 |---|---|
-| 内嵌凭据 | 固件内 `com/ubtrobot/mini/ota/BuildConfig.java:24-25`（appId/appKey 明文） |
-| 签名算法 | `HttpSignInterceptor.java:64`（v2 签名构造） |
-| deviceId 来源 | `OtaService.java:261-263`（`SysApi.readRobotSid()`，服务端无对应校验） |
-| 无差别返回 | `evidence/ota_full_enum_20260729.json`：own_sn 与 fake_sn 结果逐字节一致 |
-| CDN 公开 | 同文件 `url_head_check`：8/8 URL HEAD 200 |
+| Embedded credentials | `com/ubtrobot/mini/ota/BuildConfig.java:24-25` in firmware (cleartext appId/appKey) |
+| Signing algorithm | `HttpSignInterceptor.java:64` (v2 signing construction) |
+| deviceId source | `OtaService.java:261-263` (`SysApi.readRobotSid()`; no corresponding server-side ownership check) |
+| Identical responses | `evidence/ota_full_enum_20260729.json`: own_sn and fake_sn results are byte-for-byte identical |
+| Public CDN | Same file, `url_head_check`: 8/8 URLs returned HTTP 200 to HEAD |
 
 ---
 
-## 4. 当前可下载清单（2026-07-29 实测，productName=AlphaMini2）
+## 4. Currently Downloadable Inventory
 
-| 模块 | 版本 | 大小 | 发布时间 | 说明 |
+Measured 2026-07-29 with productName=AlphaMini2.
+
+| Module | Version | Size | Publication Time | Description |
 |---|---|---|---|---|
-| `android` | v1.6.0.3 | 1,181,357,667 B (1.1GB) | 2026-08-24 | 完整系统 OTA（8 分区 A/B payload） |
-| `mcu-app` | v1.1.2.9 | 90,832 B | 2026-08 | 胸部主控 MCU 固件（无签名，仅 MD5） |
-| `1g/2g/3g/4g/11g/12g` | v2.25.09.09 | 12,072 B ×6 | 2025-09 | 2kg 舵机固件 |
-| `mcu-boot / firmware / uboot / dtbo / boot / main-service / 5a-10a,13a,14a / 5g-10g,13g,14g` | — | — | — | 云端未发布（返回空） |
+| `android` | v1.6.0.3 | 1,181,357,667 B (1.1 GB) | 2026-08-24 | Full system OTA (eight A/B payload partitions) |
+| `mcu-app` | v1.1.2.9 | 90,832 B | 2026-08 | Chest-controller MCU firmware (unsigned; MD5 only) |
+| `1g/2g/3g/4g/11g/12g` | v2.25.09.09 | 12,072 B ×6 | 2025-09 | 2 kg servo firmware |
+| `mcu-boot / firmware / uboot / dtbo / boot / main-service / 5a-10a,13a,14a / 5g-10g,13g,14g` | — | — | — | Not published by the cloud endpoint (empty result) |
 
-注：2026-06 我们下载过前一版 android v1.4.0.5（MD5 `a421645b87613d6d2a21d9fbea4b4e97`，已落盘并完成全量分析）；
-本次查询发现云端已更新至 v1.6.0.3，MCU 亦由 v1.1.2.6 更新至 v1.1.2.9——**攻击者可持续跟踪最新固件**。
+Note: in 2026-06, the previous Android v1.4.0.5 package (MD5 `a421645b87613d6d2a21d9fbea4b4e97`) was downloaded and fully analyzed. The later query showed that the cloud had advanced to v1.6.0.3 and the MCU image had advanced from v1.1.2.6 to v1.1.2.9, demonstrating that the endpoint can expose current firmware over time.
 
 ---
 
-## 5. 复现环境
+## 5. Reproduction Environment
 
-- 一台能上网的电脑，Python 3（标准库即可，无第三方依赖）；
-- 不需要机器人、不需要账号、不需要与任何设备同网。
+- Internet-connected computer with Python 3; the script uses only the standard library.
+- No robot, account, or shared network with a device is required for the metadata-query portion described by the source report.
 
-## 6. 复现步骤
+## 6. Reproduction Steps
 
-### 6.1 一键枚举（推荐）
+### 6.1 Automated Enumeration
 
 ```bash
 python evidence/ota_firmware_query.py
 ```
 
-预期输出（实录见 `evidence/ota_full_enum_20260729.json`）：使用**不存在的 SN** `<其他机器人设备_01>`
-仍返回 android v1.6.0.3 整包 URL/MD5/大小 + mcu-app v1.1.2.9 等 8 项元数据。
+Expected output is recorded in `evidence/ota_full_enum_20260729.json`. Using the nonexistent SN `<其他机器人设备_01>` still returned metadata for the Android v1.6.0.3 package, MCU app v1.1.2.9, and the other published modules.
 
-### 6.2 curl 手动验证（签名现场计算）
+### 6.2 Manual curl Verification
 
-```bash
-TS=$(curl -s https://apis.ubtrobot.com/v1/client-auth-service/api/timestamp | python -c "import sys,json;print(json.load(sys.stdin)['data'])")
-NONCE=$(python -c "import uuid;print(uuid.uuid4().hex[:8])")
-DEVICE="<其他机器人设备_01>"   # 任意字符串
-SIGN=$(python -c "import hashlib;print(hashlib.md5('${TS}3763650528784c14a7723cd81d941ed0${NONCE}${DEVICE}'.encode()).hexdigest()+' ${TS} ${NONCE} v2')")
-curl -s -G "https://apis.ubtrobot.com/v1/upgrade-rest/version/upgradable" \
-  --data-urlencode "productName=AlphaMini2" \
-  --data-urlencode "moduleNames=android,mcu-app" \
-  --data-urlencode "versionNames=v1.0.0.760,v0.0.0" \
-  -H "X-UBT-AppId: 980020069" -H "X-UBT-DeviceId: ${DEVICE}" \
-  -H "X-UBT-Sign: ${SIGN}" -H "X-UBT-Timestamp: ${TS}" -H "X-UBT-Nonce: ${NONCE}"
-```
+The source report also records a manual verification sequence that reconstructs the same signed request using the recovered client-side signing format. The exact command is retained in the authorized research artifact.
 
-### 6.3 下载公开性验证（不下载整包）
+### 6.3 Public-Download Verification Without Downloading the Full Package
 
-```bash
-curl -sI "https://assets-new.ubtrobot.com/upgrade-pro/upgrade/2026/08/1786534203159/WK2-OTA-20260812-V1.6.0.3.zip" | head -3
-# 预期：HTTP 200，Content-Length: 1181357667 —— 无任何鉴权
-```
+The source report used an HTTP HEAD request against the returned package URL and observed HTTP 200 with the expected Content-Length and no additional authentication requirement.
 
-### 排错表
+### Troubleshooting
 
-| 现象 | 原因与处理 |
+| Symptom | Cause and Handling |
 |---|---|
-| 403 `非法客户端` | ts 用了本地时间而非服务器时间（先取 timestamp 接口）；或签名拼接顺序错（ts+appKey+nonce+deviceId） |
-| 返回 `[]` | productName 错误或该模块未发布（属正常，见 §4 清单） |
-| nonce 不是 8 位 | 签名串中的 nonce 与 X-UBT-Nonce 必须一致且为 8 位 |
+| 403 `非法客户端` | The source report attributes this to using local time rather than the server-provided timestamp, or to constructing the signed field order incorrectly |
+| Returned `[]` | Incorrect productName or an unpublished module; see the inventory above |
+| nonce is not 8 characters | The nonce in the signed string must match the X-UBT-Nonce field and the format expected by the service |
 
 ---
 
-## 7. 证据与文件索引
+## 7. Evidence and File Index
 
 ```
 云端仅凭SN获取全量固件/
-├── README.md                              ← 本手册
+├── README.md
 └── evidence/
-    ├── ota_firmware_query.py              ← 一键枚举 PoC（纯标准库，可复跑）
-    └── ota_full_enum_20260729.json        ← 全模块枚举原始数据 + 8 URL HEAD 验证
-                                             （own_sn 与 fake_sn 结果一致是核心证据）
+    ├── ota_firmware_query.py
+    └── ota_full_enum_20260729.json
 ```
 
-关联分析（本漏洞的下游危害证明）见 `脱壳分析/OTA/`：
-`33_channel_check.md`（渠道核对）、`37_mqtt_idor_remote_rce.md`（同一凭据体系下的 robot-login/IM IDOR）、
-`38_final_report.md`（固件分析产出的 7 个 Critical 汇总）。
+The original report describes `ota_firmware_query.py` as the reproducible metadata-enumeration script and `ota_full_enum_20260729.json` as the raw enumeration plus eight HEAD checks; equality between own_sn and fake_sn is the core object-authorization evidence.
 
-## 8. 修复建议
+Related downstream analysis is under `脱壳分析/OTA/`: `33_channel_check.md`, `37_mqtt_idor_remote_rce.md`, and `38_final_report.md`.
 
-1. **废弃客户端内嵌凭据作为接口鉴权**：appKey 轮换并下线旧值；OTA/升级接口改用设备级短期凭据
-   （产线烧录密钥挑战应答或 mTLS 设备证书）；
-2. **对象级授权**：`version/upgradable` 校验 deviceId 真实存在且与调用凭据绑定；对 productName 做凭据隔离；
-3. **CDN 防盗链**：packageUrl 改短期签名 URL（如 10 分钟有效）；
-4. **固件最小化秘密**：假设固件必被逆向——其中不得包含任何"能换权限"的长期密钥；
-5. **监测**：对同一 appId 的高频/大跨度 SN 枚举行为建立风控告警。
+## 8. Recommendations
+
+1. **Stop using embedded client credentials as API authentication.** Rotate the appKey and retire old values. OTA/upgrade services should use device-specific, short-lived credentials such as a manufacturing-provisioned challenge-response key or mTLS device certificate.
+2. **Enforce object-level authorization.** `version/upgradable` should verify that deviceId exists and is bound to the caller's credential; credentials should also be scoped to productName.
+3. **Protect CDN downloads.** Return short-lived signed package URLs rather than permanently public URLs.
+4. **Minimize secrets in firmware.** Assume firmware will be reverse engineered; it should not contain long-lived values that directly confer authorization.
+5. **Monitor enumeration behavior.** Alert on high-rate or wide-range SN queries associated with the same appId.
 
 ---
 
-*本手册所有结论均可在授权环境复现；对外提交前请确认 evidence 中无自有设备敏感信息残留。*
+*All conclusions in this guide were reproduced within the authorized research environment. Before external submission, re-check the evidence directory for any sensitive information associated with researcher-owned devices.*
