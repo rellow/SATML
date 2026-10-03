@@ -1,178 +1,132 @@
 ---
-编号: GAL-003
-验证状态: 静态确认
-严重程度: 高
-披露状态: 内部研究
-源平台: 伽利略
-源候选目录: ONNX策略未签名供应链植入
+ID: GAL-003
+validation_status: statically confirmed
+severity: high
+disclosure_status: internal research
+source_platform: Galileo
+source_candidate_directory: ONNX策略未签名供应链植入
 ---
-# GAL-003 伽利略（Galileo）ONNX 策略未签名供应链植入 漏洞报告
+# GAL-003 Galileo Unsigned ONNX Motion-Policy Supply-Chain Implant
 
-## 1. 一句话结论
+## 1. Summary
 
-- \| 权限 \| galileo（= web RCE 落地用户） \|
-- ## 1. 漏洞概述
-- 在策略切换时从盘重建 onnxruntime 会话；切换可被未授权 **ZMQ 5555**（#25，
-- - 文件在 web 可写 home 树内 → 任一 wave-1 web RCE 即成**持久化物理后门**
-- 攻击者（web RCE → galileo，或本地）
+Galileo motion policies are stored as writable ONNX models and YAML configuration in the `galileo` user's tree and are loaded by the motion-control process without a vendor signature or pinned hash. Policy transitions rebuild the ONNX runtime session from disk. A prior web-RCE/file-write primitive can therefore become a persistent physical-control implant by replacing a policy artifact, and a remotely reachable policy-switch mechanism can later activate it.
 
-## 2. 影响产品与版本
+## 2. Affected Products and Versions
 
-- \| 目标设备 \| 伽利略（Galileo）GRQ05W 轮足机器人（固件 galileo-inter 1.0.44） \|
-- \| 漏洞组件 \| `galileo-robot-mc/lib/liborrt_motion_control_wheel_onnx_policy_inference.so`、`..._rl_control_recovery.so`（onnxruntime 加载器） \|
-- \| 漏洞类型 \| 供应链完整性缺失（CWE-494）：控制面工件无签名/哈希/版本固定 \|
-- \| 授权边界 \| 仅对自有设备、隔离环境进行 \|
-- - 恶意模型输出 clip 饱和关节目标 → 持续剧烈关节运动（貌似固件 bug）；
+- Target: Galileo GRQ05W, firmware `galileo-inter 1.0.44`.
+- Components: ONNX policy inference/recovery libraries and `share/policy/<name>/policy.onnx`.
+- Seven policy directories and their configuration files were independently confirmed.
 
-## 3. 验证状态
+## 3. Validation Status
 
-`静态确认`。该状态来自源报告的验证边界；迁移过程不把目录名称自动视为动态确认。
+`statically confirmed`. File-level integrity properties and loader behavior are supported by source/binary evidence; a malicious policy was not deployed on the robot.
 
-## 4. 攻击前提
+## 4. Attack Preconditions
 
-攻击前提以脱敏研究正文为准；复现必须使用自有设备、隔离网络和授权环境，不得对第三方设备执行写入、控制或破坏性操作。
+The attacker first needs write authority to the policy tree, such as through a separate web/file-write finding or local access. Activation then requires a policy transition through a reachable control path.
 
-## 5. 根本原因
+## 5. Root Cause
 
-- \| 漏洞类型 \| 供应链完整性缺失（CWE-494）：控制面工件无签名/哈希/版本固定 \|
-- 1. **零完整性校验**：加载路径无签名/哈希/固定（库内无 openssl/crc/摘要字符串），
+Motion-control artifacts have no cryptographic signature/hash binding, reside in a writable tree, and are reloaded from disk during policy transitions.
 
-## 6. 攻击过程
+## 6. Attack Procedure
 
-源报告描述的入口、协议和利用顺序见第 13 节脱敏正文；本目录只保留最小复现材料，不复制原始大型证据。
+The retained safe workflow hashes policy files, inspects configuration, and can substitute a benign structurally compatible model in a controlled test with automatic backup/restore. It does not install a malicious motion policy.
 
-## 7. 实际影响
+## 7. Impact
 
-- \| 漏洞类型 \| 供应链完整性缺失（CWE-494）：控制面工件无签名/哈希/版本固定 \|
-- 在运动控制进程内按策略频率执行，输出直接映射关节目标
-- ### 影响
-- - 抹掉/损坏文件 → `PolicyTransition/Inference` 抛异常 → 运动控制不可用（DoS）；
-- 恶意模型以策略频率输出关节目标 —— 持久物理控制（重启存活，无进程常驻）
-- ## 4. 复现（root 通道 adb 桥接版 exploit.py，无破坏演示）
+- Persistent modification of robot motion behavior across restart.
+- Tampering with policy safety limits and gains stored in YAML.
+- Motion-control denial of service by corrupting/removing a model.
+- A remote file-write vulnerability can therefore become a long-lived physical backdoor without a persistent shell.
 
-## 8. 复现方法
+## 8. Reproduction
 
-复现材料见 [复现材料清单](复现/材料清单.md)。导入脚本已做文本脱敏；未导入的原始脚本、日志、抓包和二进制见根目录材料清单。
+See [Reproduction Material Manifest](复现/材料清单.md). Keep any substitution benign and restore the original immediately.
 
-## 9. 支撑证据
+## 9. Supporting Evidence
 
-见 [证据材料清单](证据/材料清单.md) 和本页第 13 节。来源文件只登记哈希和本地保管路径，不把原始敏感材料带入 Git。
+See [Evidence Material Manifest](证据/材料清单.md) and Section 13.
 
-## 10. 修复建议
+## 10. Recommendations
 
-- 对入口实施身份认证、细粒度授权、消息完整性校验和重放防护；
-- 对路径、长度、协议字段、文件类型和状态转换使用允许列表；
-- 删除硬编码凭据并轮换已暴露材料；
-- 对高风险服务降权，增加审计日志和负向回归测试。
+- Sign policy ONNX/YAML artifacts with a vendor key or place them on an immutable verified partition.
+- Verify signatures/hashes before every policy load or transition.
+- Move hard safety limits out of the writable policy tree.
+- Restrict policy-transition APIs to authenticated callers.
 
-## 11. 相关 AI 会话
+## 11. Related AI Sessions
 
-当前未发现与该报告一一对应的完整 Claude Code 会话记录；如后续补齐，将在 [AI 会话索引](../../../../../AI轨迹/会话索引.md) 中登记。
+No complete Claude Code session record has currently been identified that maps one-to-one to this report.
 
-## 12. 披露记录
+## 12. Disclosure Record
 
-- 当前披露状态：内部研究。
-- 对外披露前必须重新审查凭据、设备标识、证据和厂商协调状态。
+- Current disclosure status: internal research.
 
-## 13. 脱敏后的原始研究正文
+## 13. Sanitized Original Research Body
 
-# 伽利略（Galileo）ONNX 策略未签名供应链植入 漏洞报告
+# Galileo Unsigned ONNX Motion-Policy Supply-Chain Implant
 
-| 项 | 值 |
+| Item | Value |
 |---|---|
-| 目标设备 | 伽利略（Galileo）GRQ05W 轮足机器人（固件 galileo-inter 1.0.44） |
-| 漏洞组件 | `galileo-robot-mc/lib/liborrt_motion_control_wheel_onnx_policy_inference.so`、`..._rl_control_recovery.so`（onnxruntime 加载器） |
-| 漏洞类型 | 供应链完整性缺失（CWE-494）：控制面工件无签名/哈希/版本固定 |
-| 攻击面 | 本地文件写（galileo 树）；经 #1/#4/#19 任一远程写原语即远程链式 |
-| 权限 | galileo（= web RCE 落地用户） |
-| 发现来源 | 外部 round-2 `AUD-w2mc-onnx-unsigned-policy-supply-chain`；我方文件级独立复核 |
-| 复现日期 | 2026-08-29（文件级确证；加载路径零校验字符串采信 round-2） |
-| 授权边界 | 仅对自有设备、隔离环境进行 |
+| Target | Galileo GRQ05W (`galileo-inter 1.0.44`) |
+| Components | ONNX policy inference and recovery libraries |
+| Type | Missing integrity protection for safety-critical model artifacts (CWE-494) |
+| Attack Surface | Writable `galileo` policy tree; can compose with remote file-write/RCE findings |
+| Validation | File-level confirmation + loader-path analysis |
 
----
+## Vulnerability Overview
 
-## 1. 漏洞概述
+Each locomotion behavior is represented by an ONNX network loaded by the motion-control process. Policy output maps directly to joint targets. The policy tree contains several model directories and writable YAML files describing gains, limits, scaling, default joint positions, and fall-detection thresholds.
 
-每个运动行为（站立/行走/下楼梯/左坡/quadruped/恢复）是一个 ONNX 网络，
-在运动控制进程内按策略频率执行，输出直接映射关节目标
-（`policy.yaml`: `action_pos_scale: 0.25`，`clip_actions: 100.0` —— 我方固证原文）。
+The source report identified three key properties:
 
-加载路径 `share/policy/<name>/policy.onnx`（我方固证 7 个目录，777KB–1MB，
-galileo 属主）存在三重缺陷：
+1. **No cryptographic integrity check.** The loader relies on ONNX parsing rather than a vendor signature or pinned digest.
+2. **Runtime reload.** A policy transition rebuilds the ONNX runtime session from the model on disk.
+3. **Writable safety configuration.** Related YAML files containing safety/limit parameters live in the same writable tree.
 
-1. **零完整性校验**：加载路径无签名/哈希/固定（库内无 openssl/crc/摘要字符串），
-   唯一"验证"是 onnxruntime 自身模型解析；
-2. **热重载 + 远程触发**：`CheckPolicyTransition@0x25ba0 → PolicyTransition@0x24d70`
-   在策略切换时从盘重建 onnxruntime 会话；切换可被未授权 **ZMQ 5555**（#25，
-   `SetRobotPolicy`/`StandUp`/`RealtimeMotionControl`，TCP 实测可达）触发，
-   LCM 路径（mc_policy_desired）已随 #6/#20 删除条目定性为不可达 —— **植入后一条
-   ZMQ RPC 调用即激活**；
-3. **安全限幅同树明文**：`policy.yaml`（joint_kp/max_velocity/clip_actions）、
-   `wheel_onnx_policy_inference.yaml`（joint_tor_limit: 60, wheel_joint_vel_limit: 33）、
-   `joint_default_wheel.yaml`（joint_kp: 200, projected_gravity_threshold: 0.1 跌倒检测阈值）
-   全部可改。
+A separate network file-write or web-RCE primitive can therefore replace a policy without maintaining a resident process. A later policy transition activates the changed artifact.
 
-### 影响
-- 恶意模型输出 clip 饱和关节目标 → 持续剧烈关节运动（貌似固件 bug）；
-- 抹掉/损坏文件 → `PolicyTransition/Inference` 抛异常 → 运动控制不可用（DoS）；
-- 文件在 web 可写 home 树内 → 任一 wave-1 web RCE 即成**持久化物理后门**
-  （无需常驻 shell，重启存活）。
+## Confirmed File-Level Evidence
 
-## 2. 我方固证（文件级）
+The research confirmed seven policy directories, including locomotion, slope/stair, quadruped, release, and recovery variants, with corresponding ONNX/YAML files.
+
+Representative configuration fields included:
+
+- action position/velocity scaling;
+- `clip_actions`;
+- joint-name and default-position arrays;
+- joint torque/velocity limits;
+- fall-detection thresholds.
+
+## Security Chain
 
 ```
-share/policy/{locomotion_blind, locomotion_blind-down-stair,
-              locomotion_blind-left-slope, locomotion_blind-right-flat,
-              quadruped, release, rl_control_recovery}/policy.onnx
-  尺寸 777,009–1,001,491 B，各配 policy.yaml
-
-locomotion_blind/policy.yaml（我方读取原文节选）：
-  action_pos_scale: 0.25
-  action_vel_scale: 2.0
-  clip_actions: 100.0
-  joint_names: [16 关节]
-  default_joint_pos: [...]
-  input_obs_scales_map: {projected_gravity: 1.0, joint_vel: 0.05, ...}
+remote/local file-write authority
+        ↓
+replace policy.onnx or related safety YAML
+        ↓
+policy transition reloads artifact from disk
+        ↓
+unverified model/config drives joint targets
+        ↓
+persistent altered motion behavior or DoS
 ```
 
-## 3. 攻击链
+## Safe Reproduction
 
-```
-攻击者（web RCE → galileo，或本地）
-   │ cp evil.onnx share/policy/rl_control_recovery/policy.onnx
-   ▼
-（任意延迟后）未授权 ZMQ 5555 `SetRobotPolicy`/`RealtimeMotionControl`（#25）← "rl_control_recovery"
-   ▼
-CheckPolicyTransition 命中 policy_list → PolicyTransition 从盘重建会话（无校验）
-   ▼
-恶意模型以策略频率输出关节目标 —— 持久物理控制（重启存活，无进程常驻）
-```
+The retained test records hashes/configuration and can use a benign compatible policy substitution with backup/restore to demonstrate the absence of an integrity gate. No malicious motion model is deployed.
 
-## 4. 复现（root 通道 adb 桥接版 exploit.py，无破坏演示）
+## Recommendations
 
-```bash
-python exploit.py check     # 7 目录 + sha256 基线 + 明文限幅清单
-python exploit.py plant     # ★ 同构策略覆盖 rl_control_recovery（自动备份）→ 前后 sha256
-python exploit.py restore   # 恢复
-```
+1. Vendor-sign policy and configuration artifacts.
+2. Verify on every load/transition.
+3. Keep hard safety limits in a separately protected layer.
+4. Authenticate policy-transition control paths.
 
-关键证据：植入后 sha256 变为源策略哈希、加载路径无任何拦截 —— 同构模型互换
-被 loader 接受即为"无完整性校验"的实证（真实攻击换任意恶意同构模型）。
+## Evidence
 
-## 5. 影响范围
-
-- 持久化物理控制植入（配合 web RCE 免常驻）；
-- 安全限幅（tor_limit/kp/跌倒阈值）篡改；
-- 运动控制可用性破坏。
-
-## 6. 修复建议
-
-1. policy.onnx/策略 yaml 签名（厂商私钥）或固化只读分区 + 启动时哈希校验；
-2. PolicyTransition 拒绝运行时非签名来源的重载；
-3. 安全限幅移出可写树（root 属主只读）。
-
-## 7. 证据
-
-- `evidence/policy目录清单.txt`：7 目录/尺寸/yaml 关键参数（固证）
-- `C:\zyh\work\机器人\伽利略\ext_audit\round2\round2-交叉静态验证_20260829.md` §二.6
-- 外部 round-2 原文：`AUD-w2mc-onnx-unsigned-policy-supply-chain.md`
+- `evidence/policy目录清单.txt`
+- cross-validation report under the external audit archive
+- original round-2 analysis `AUD-w2mc-onnx-unsigned-policy-supply-chain.md`
